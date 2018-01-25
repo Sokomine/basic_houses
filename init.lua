@@ -1,10 +1,12 @@
+-- Modified:
+--   * used function from handle_schematics to mark parts of the heightmap as used
+--   * glass panes, glass and obisidan glass are more common than bars
+--   * windows are no longer "filled" (param2 now set to 0)
 -- Known issues:
 --   * cavegen may eat holes into the ground below the house
 --   * panes (glass or bars) right next to a door look bad
 --   * wall parts where glass panes might be will sometimes be colored strangely
 --     (which actually looks intresting most of the time)
---   * glass windows look wrong due to their param2 not beeing 0 (they are
---     "filled" partly)
 --   * trees, plants and snow inside the house are not cleared
 
 simple_houses = {};
@@ -12,7 +14,7 @@ simple_houses = {};
 -- generate at max this many houses per mapchunk;
 -- Note: This amount will likely only spawn if your mapgen is very flat.
 --       Else you will see far less houses.
-simple_houses.max_per_mapchunk = 20;
+simple_houses.max_per_mapchunk = 30;
 
 -- used for adding colored clay and coral as material for house walls
 local palette = "unifieddyes_palette_extended.png";
@@ -112,7 +114,10 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 		gable = walls;
 	end
 	-- glass can be glass panes, iron bars or solid glass
-	local glass_materials = {"xpanes:pane_flat","default:glass","xpanes:bar_flat"};
+	local glass_materials = {"xpanes:pane_flat","xpanes:pane_flat","xpanes:pane_flat",
+			"default:glass","default:glass",
+			"default:obsidian_glass",
+			"xpanes:bar_flat"};
 	local glass = glass_materials[ math.random( 1,#glass_materials )];
 	local materials = {
 		walls = walls,
@@ -175,11 +180,18 @@ simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heigh
 	-- param2 (orientation or color) for the first two walls
 	local w1_c = (materials.color or 12); -- wall 1 color
 	local w2_c = (materials.color or 18); -- wall 2 color
+	local w1_g = 12; -- wall 1 glass pane rotation
+	local w2_g = 18; -- wall 2 glass pane rotation
+	if( minetest.registered_nodes[ materials.glass ]
+	  and minetest.registered_nodes[ materials.glass ].paramtype2 == "glasslikeliquidlevel") then
+		w1_g = 0;
+		w2_g = 0;
+	end
 	for dy = p.y, p.y+4 do
 		-- build two walls in x direction
 		if( window_at_height[ dy-p.y+1 ]==1 and (m1==materials.glass or m2==materials.glass)) then
-			vm:set_node_at( {x=dx,y=dy,z=dz-1      }, {name=m1, param2=12});
-			vm:set_node_at( {x=dx,y=dy,z=dz-sizez+1}, {name=m2, param2=18});
+			vm:set_node_at( {x=dx,y=dy,z=dz-1      }, {name=m1, param2=w1_g});
+			vm:set_node_at( {x=dx,y=dy,z=dz-sizez+1}, {name=m2, param2=w2_g});
 		else
 			vm:set_node_at( {x=dx,y=dy,z=dz-1      }, {name=materials.walls, param2=w1_c});
 			vm:set_node_at( {x=dx,y=dy,z=dz-sizez+1}, {name=materials.walls, param2=w2_c});
@@ -201,11 +213,18 @@ simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heigh
 	-- param2 (orientation or color) for the other two walls
 	local w3_c = (materials.color or 9); -- wall 3 color
 	local w4_c = (materials.color or 7); -- wall 4 color
+	local w3_g = 9; -- wall 3 glass pane rotation
+	local w4_g = 7; -- wall 4 glass pane rotation
+	if( minetest.registered_nodes[ materials.glass ]
+	  and minetest.registered_nodes[ materials.glass ].paramtype2 == "glasslikeliquidlevel") then
+		w3_g = 0;
+		w4_g = 0;
+	end
 	for dy = p.y, p.y+4 do
 		-- build two walls in z direction
 		if( window_at_height[ dy-p.y+1 ]==1 and (m1==materials.glass or m2==materials.glass)) then
-			vm:set_node_at( {x=dx-1,      y=dy,z=dz}, {name=m1, param2=9});
-			vm:set_node_at( {x=dx-sizex+1,y=dy,z=dz}, {name=m2, param2=7});
+			vm:set_node_at( {x=dx-1,      y=dy,z=dz}, {name=m1, param2=w3_g});
+			vm:set_node_at( {x=dx-sizex+1,y=dy,z=dz}, {name=m2, param2=w4_g});
 		else
 			vm:set_node_at( {x=dx-1,      y=dy,z=dz}, {name=materials.walls, param2=w3_c});
 			vm:set_node_at( {x=dx-sizex+1,y=dy,z=dz}, {name=materials.walls, param2=w4_c});
@@ -336,18 +355,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	for i=1,simple_houses.max_per_mapchunk do
 		local res = simple_houses.simple_hut_generate( heightmap, minp, maxp);
 		if( res and res.p1 and res.p2 ) then
-			local offset = maxp.x - minp.x - (res.p2.x-res.p1.x);
-			local i = res.p2.i;
-			-- mark the place where the house has been spawned as unusable (occupied)
-			for dz = res.p1.z, res.p2.z do
-				for dx = res.p1.x, res.p2.x do
-					heightmap[ i ] = -1000;
-					i = i-1;
-				end
-				i = i - offset;
-			end
-		else
-			return;
+			handle_schematics.mark_flat_land_as_used(heightmap, minp, maxp,
+					res.p2.i,
+					(res.p2.x-res.p1.x),
+					(res.p2.z-res.p1.z));
 		end
 	end
 end);
