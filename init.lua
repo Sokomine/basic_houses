@@ -44,16 +44,19 @@ simple_houses.max_per_mapchunk = 20;
 --    rotation_1  param2 for materials.wall nodes for the first wall
 --    rotation_2  param2 for materials.wall nodes for the second wall
 --    vm          voxel manipulator
-simple_houses.build_two_walls = function( p, sizex, sizez, in_x_direction,
-		materials, rotation_1, rotation_2, vm)
+simple_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, materials, vm)
 
+	local v = 0;
+	if( not( in_x_direction )) then
+		v = 2;
+	end
 	-- param2 (orientation or color) for the first two walls;
 	-- tree logs need to be orientated correctly, colored nodes have to keep their color;
-	local node_wall_1  = {name=materials.walls, param2 = (materials.color or rotation_1)};
-	local node_wall_2  = {name=materials.walls, param2 = (materials.color or rotation_2)};
+	local node_wall_1  = {name=materials.walls, param2 = (materials.color or materials.wall_orients[1+v])};
+	local node_wall_2  = {name=materials.walls, param2 = (materials.color or materials.wall_orients[2+v])};
 	-- glass panes and metal bars need the correct rotation and no color value
-	local node_glass_1 = {name=materials.glass, param2 = rotation_1};
-	local node_glass_2 = {name=materials.glass, param2 = rotation_2};
+	local node_glass_1 = {name=materials.glass, param2 = materials.glass_orients[1+v]};
+	local node_glass_2 = {name=materials.glass, param2 = materials.glass_orients[2+v]};
 	-- solid glass needs a rotation of 0 (else it would be interpreted as level)
 	if( minetest.registered_nodes[ materials.glass ]
 	  and minetest.registered_nodes[ materials.glass ].paramtype2 == "glasslikeliquidlevel") then
@@ -328,46 +331,30 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 	-- translate index back into coordinates
 	local p = {x=minp.x+(i%chunksize)-1, y=heightmap[ i ], z=minp.z+math.floor(i/chunksize), i=i};
 
-	local wood_types = {"", "jungle", "acacia_", "aspen_", "pine_"};
-	-- wooden roof
-	local wood  = wood_types[ math.random( #wood_types )];
-	local wood1 = wood_types[ math.random( #wood_types )];
-	local wood2 = wood_types[ math.random( #wood_types )];
-	-- ceiling of main room (which is also the floor of the room below the roof)
-	local wood3 = wood_types[ math.random( #wood_types )];
-	-- the walls can be wooden planks, tree trunks, painted clay or painted wall (=coral)
-	local walls = "default:"..wood1.."wood";
-	local color = nil;
-	local gable = "default:"..wood2.."wood";
-	if( plasterwork and math.random(1,2)==1) then
-		walls = plasterwork.node_list[ math.random(1, #plasterwork.node_list)];
-		color = math.random(0,255);
-	else
-		local r = math.random(1,5);
-		if(r==1 or r==2) then
-			walls = "default:"..wood1.."tree";
-		end
-	end
-	if( math.random(1,2)==1) then
-		gable = walls;
-	end
+
+	-- select some random materials, height etc.
+	-- wood is always useful
+	local wood_types = replacements_group['wood'].found;
+	local wood       = wood_types[ math.random(1,#wood_types)];
+	local wood_roof  = wood_types[ math.random(1,#wood_types)];
 	-- glass can be glass panes, iron bars or solid glass
 	local glass_materials = {"xpanes:pane_flat","xpanes:pane_flat","xpanes:pane_flat",
 			"default:glass","default:glass",
 			"default:obsidian_glass",
 			"xpanes:bar_flat"};
-	local glass = glass_materials[ math.random( 1,#glass_materials )];
+	-- choose random materials
 	local materials = {
-		walls = walls,
-		first_floor = "default:brick",
-		gable = gable,
-		ceiling = "default:"..wood3.."wood",
-		roof = "stairs:stair_"..wood.."wood",
-		roof_middle = "stairs:slab_"..wood.."wood",
-		glass = glass,
-		"xpanes:pane_flat", --"default:glass",
-		color = color,
-		};
+		walls = nil,
+		color = nil,
+		gable = nil,
+		glass         = glass_materials[ math.random( 1,#glass_materials )],
+		roof          = replacements_group['wood'].data[ wood_roof ][7], -- stair
+		roof_middle   = replacements_group['wood'].data[ wood_roof ][8], -- slab
+		first_floor   = "default:brick",
+		ceiling       = wood_types[ math.random(1,#wood_types)],
+		wall_orients  = {0,1,2,3},
+		glass_orients = {12,18,9,7},
+	};
 
 	-- windows 3 nodes high, 2 high, or just 1?
 	local r = math.random(1,6);
@@ -379,16 +366,63 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 		materials.window_at_height = {0,0,1,0,0};
 	end
 
-	local max_floors_possible = math.floor((maxp.y+16-1-p.y)/#materials.window_at_height);
 	-- how many floors will the house have?
+	local max_floors_possible = math.floor((maxp.y+16-1-p.y)/#materials.window_at_height);
 	materials.floors = math.random(1,max_floors_possible-1);
-	-- TODO: buildings with colored materials ought to have more floors and more often a flat roof
-	-- TODO: logcabin-style houses ought to have at max 2 floors and almost never a flat roof
-	-- TODO: houses with wood ought to have 1-3 floors at max
+
+	-- some houses may have a flat roof instead of a saddle roof
 	materials.flat_roof = false;
 	if( math.random(1,2)==1) then
 		materials.flat_roof = true;
 	end
+
+	-- which wall material shall be used?
+	if( plasterwork and math.random(1,2)==1 ) then
+		-- colored plasterwork
+		materials.walls = plasterwork.node_list[ math.random(1, #plasterwork.node_list)];
+		materials.color = math.random(0,255);
+	else
+		local r = math.random(1,3);
+		-- wooden house
+		if(     r==1 ) then
+			materials.walls = wood;
+			-- wooden houses with more than 3 floors would be strange
+			materials.floors = math.random(1, math.min( 3, max_floors_possible-1 ));
+			-- flat roofs do not look good on them either
+			materials.flat_roof = false;
+			-- vertical wood is also pretty decorative
+			if( math.random(1,2)==1 ) then
+				materials.wall_orients = {12,18,9,7};
+			end
+		-- tree logs
+		elseif( r==2 ) then
+			materials.walls = replacements_group['wood'].data[ wood ][4]; -- tree trunk
+			-- log cabins with more than 2 floors are unlikely
+			materials.floors = math.random(1, math.min( 2, max_floors_possible-1 ));
+			-- log cabins do not have a flat roof either
+			materials.flat_roof = false;
+			materials.wall_orients = {12,18,9,7};
+		else
+			local wall_options = {"default:brick",
+				"default:stonebrick",
+				"default:desert_stonebrick",
+				"default:sandstonebrick",
+				"default:desert_stonebrick",
+				"default:silver_sandstone_brick",
+				"default:obsidianbrick",
+				"default:stone_block",
+				"default:sandstone_block",
+				"default:desert_sandstone_block",
+				"default:silver_sandstone_block",
+				"default:obsidian_block"};
+			materials.walls = wall_options[ math.random(1,#wall_options)];
+		end
+	end
+	materials.gable = materials.walls;
+	if( math.random(1,3)==1 ) then
+		materials.gable = wood_types[ math.random(1,#wood_types)];
+	end
+
 	local height = materials.floors * #materials.window_at_height +1;
 	if( materials.flat_roof ) then
 		p.ymax = math.min( maxp.y+16, p.y + height + math.ceil( math.min( sizex, sizez )/2 ));
@@ -436,9 +470,9 @@ simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heigh
 
 	local p_start = {x=p.x-sizex+1, y=p.y-1, z=p.z-sizez+1};
 	-- build the two walls in x direction
-	local s1 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, true,  materials, 12, 18, vm );
+	local s1 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, true,  materials, vm ); --12, 18, vm );
 	-- build the two walls in z direction
-	local s2 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, false, materials,  9,  7, vm );
+	local s2 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, false, materials, vm ); -- 9,  7, vm );
 
 	-- each floor is 4 blocks heigh
 	local roof_starts_at = p.y + (4*materials.floors);
