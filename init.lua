@@ -43,7 +43,7 @@ simple_houses.max_per_mapchunk = 20;
 --    rotation_2  param2 for materials.wall nodes for the second wall
 --    vm          voxel manipulator
 simple_houses.build_two_walls = function( p, sizex, sizez, in_x_direction,
-		materials, rotation_1, rotation_2, window_at_height, vm)
+		materials, rotation_1, rotation_2, vm)
 
 	-- param2 (orientation or color) for the first two walls;
 	-- tree logs need to be orientated correctly, colored nodes have to keep their color;
@@ -96,7 +96,7 @@ simple_houses.build_two_walls = function( p, sizex, sizez, in_x_direction,
 		end
 	end
 
-	local wall_height = #window_at_height;
+	local wall_height = #materials.window_at_height;
 	for lauf = 1, size do
 		local wall_1_has_window = false;
 		local wall_2_has_window = false;
@@ -114,7 +114,7 @@ simple_houses.build_two_walls = function( p, sizex, sizez, in_x_direction,
 		-- actually build the wall from bottom to top
 		for height = 1,wall_height do
 			-- if there is a window in this wall...
-			if( window_at_height[ height ]==1 and wall_1_has_window) then
+			if( materials.window_at_height[ height ]==1 and wall_1_has_window) then
 				node = node_glass_1;
 			else
 				node = node_wall_1;
@@ -122,7 +122,7 @@ simple_houses.build_two_walls = function( p, sizex, sizez, in_x_direction,
 			vm:set_node_at( {x=w1_x, y=p.y+height, z=w1_z}, node);
 
 			-- ..or in the other wall
-			if( window_at_height[ height ]==1 and (wall_2_has_window)) then
+			if( materials.window_at_height[ height ]==1 and (wall_2_has_window)) then
 				node = node_glass_2;
 			else
 				node = node_wall_2;
@@ -343,7 +343,7 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 	local glass = glass_materials[ math.random( 1,#glass_materials )];
 	local materials = {
 		walls = walls,
-		floor = "default:brick",
+		first_floor = "default:brick",
 		gable = gable,
 		ceiling = "default:"..wood3.."wood",
 		roof = "stairs:stair_"..wood.."wood",
@@ -352,76 +352,75 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 		"xpanes:pane_flat", --"default:glass",
 		color = color,
 		};
+
+	-- windows 3 nodes high, 2 high, or just 1?
+	local r = math.random(1,6);
+	if(     r==1 or r==2) then
+		materials.window_at_height = {0,1,1,1,0};
+	elseif( r==3 or r==4 or r==5) then
+		materials.window_at_height = {0,0,1,1,0};
+	else
+		materials.window_at_height = {0,0,1,0,0};
+	end
+
+	-- how many floors will the house have?
+	materials.floors = math.random(1,5);
+	-- TODO: buildings with colored materials ought to have more floors and more often a flat roof
+	-- TODO: logcabin-style houses ought to have at max 2 floors and almost never a flat roof
+	-- TODO: houses with wood ought to have 1-3 floors at max
+	materials.flat_roof = false;
+	if( math.random(1,2)==1) then
+		materials.flat_roof = true;
+	end
 	return simple_houses.simple_hut_place_hut( p, sizex, sizez, materials, heightmap );
 end
 
 
 -- actually build the "hut"
 simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heightmap )
-
 	sizex = sizex-1;
 	sizez = sizez-1;
 	-- house too small or too large
 	if( sizex < 3 or sizez < 3 or sizex>64 or sizez>64) then
 		return nil;
 	end
+--	print( "  Placing house at "..minetest.pos_to_string( p ));
 
 	local vm = minetest.get_voxel_manip();
 	local minp2, maxp2 = vm:read_from_map(
 		{x=p.x - sizex, y=p.y-1, z=p.z - sizez },
 		{x=p.x, y=p.y+math.max(sizex,sizez)*2, z=p.z});
 
---	print( "  Placing house at "..minetest.pos_to_string( p ));
-
-	local window_at_height = {0,0,0,0,0};
-	local r = math.random(1,6);
-	if(     r==1 or r==2) then
-		window_at_height = {0,1,1,1,0};
-	elseif( r==3 or r==4 or r==5) then
-		window_at_height = {0,0,1,1,0};
-	else
-		window_at_height = {0,0,1,0,0};
-	end
-	-- how many floors will the house have?
-	local floors = 1;
-	local floor_materials = {{name="default:brick"}};
+	-- replaicate the pattern of windows for the other floors
+	local first_floor_height = #materials.window_at_height;
 	local floor_height = {p.y};
-	-- TODO: buildings with colored materials ought to have more floors and more often a flat roof
-	-- TODO: logcabin-style houses ought to have at max 2 floors and almost never a flat roof
-	-- TODO: houses with wood ought to have 1-3 floors at max
-	floors = math.random(1,5);
-	local flat_roof = false;
-	if( math.random(1,2)==1) then
-		flat_roof = true;
-	end
-
-	local first_floor_height = #window_at_height;
-	for i=1,floors-1 do
+	local floor_materials = {{name=materials.first_floor}};
+	for i=1,materials.floors-1 do
 		for k=2,first_floor_height do
-			table.insert( window_at_height, window_at_height[k]);
+			table.insert( materials.window_at_height, materials.window_at_height[k]);
 		end
 		table.insert( floor_height, floor_height[ #floor_height] + first_floor_height-1);
 		table.insert( floor_materials, {name=materials.ceiling});
 	end
 	table.insert( floor_height, floor_height[ #floor_height] + first_floor_height-1);
-	if( flat_roof ) then
+	if( materials.flat_roof ) then
 		table.insert( floor_materials, {name=materials.walls, param2 = (materials.color or 12)});
-		table.insert( window_at_height, 0 );
+		table.insert( materials.window_at_height, 0 );
 	else
 		table.insert( floor_materials, {name=materials.walls, param2 = (materials.color or 12)});
 	end
 
 	local p_start = {x=p.x-sizex+1, y=p.y-1, z=p.z-sizez+1};
 	-- build the two walls in x direction
-	local s1 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, true,  materials, 12, 18, window_at_height, vm );
+	local s1 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, true,  materials, 12, 18, vm );
 	-- build the two walls in z direction
-	local s2 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, false, materials,  9,  7, window_at_height, vm );
+	local s2 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, false, materials,  9,  7, vm );
 
 	-- each floor is 4 blocks heigh
-	local roof_starts_at = p.y + (4*floors);
+	local roof_starts_at = p.y + (4*materials.floors);
 	p_start = {x=p.x-sizex, y=roof_starts_at, z=p.z-sizez};
 	-- build the roof
-	if( flat_roof ) then
+	if( materials.flat_roof ) then
 		-- build a flat roof
 	elseif( sizex < sizez ) then
 		simple_houses.build_roof_and_gable(p_start, sizex, sizez, true,  materials, 1, 3, vm );
@@ -444,7 +443,7 @@ simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heigh
 	local reserved_places = {s1[1], s1[2], s2[1], s2[2], s1[3], s2[3]};
 	p_start = {x=p.x-sizex, y=p.y, z=p.z-sizez};
 	local wall_with_ladder = simple_houses.place_ladder( p_start, sizex, sizez,
-		reserved_places, #window_at_height-1, flat_roof, vm);
+		reserved_places, #materials.window_at_height-1, materials.flat_roof, vm);
 
 	simple_houses.place_door( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm );
 
