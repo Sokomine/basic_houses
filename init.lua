@@ -9,6 +9,8 @@
 --     through their future inhabitants
 --     (no windows in gable, no decoration, no cellar, no furniture,
 --     no mini-house for elevator/ladder on top of skyscrapers, ...)
+--   * if the saddle roof does not fit into the height volume that is
+--     reserved for the house, the top of the roof is made flat
 -- Technical stuff:
 --   * used function from handle_schematics to mark parts of the heightmap as used
 --   * glass panes, glass and obisidan glass are more common than bars
@@ -174,20 +176,32 @@ simple_houses.build_roof_and_gable = function( p_orig, sizex, sizez, in_x_direct
 		swap = true;
 	end
 
+	local node_slab = {name=materials.roof_middle};
+
 	local xhalf = math.floor( sizex/2 );
 	for dx = 0,xhalf do
 		for dz = p.z, p.z+sizez do
-			vm:set_node_at( pswap({x=p.x+      dx,y=dy,z=dz}, swap), node_side_1 );
-			vm:set_node_at( pswap({x=p.x+sizex-dx,y=dy,z=dz}, swap), node_side_2 );
+			-- normal saddle roof
+			if( dy < p_orig.ymax ) then
+				vm:set_node_at( pswap({x=p.x+      dx,y=dy,z=dz}, swap), node_side_1 );
+				vm:set_node_at( pswap({x=p.x+sizex-dx,y=dy,z=dz}, swap), node_side_2 );
+			-- flatten the top of the saddle roof
+			else
+				vm:set_node_at( pswap({x=p.x+      dx,y=p_orig.ymax,z=dz}, swap), node_slab );
+				vm:set_node_at( pswap({x=p.x+sizex-dx,y=p_orig.ymax,z=dz}, swap), node_slab );
+			end
 		end
 		dy = dy+1;
 	end
 
 	-- if sizex is not even, then we need to use slabs at the heighest point
-	local node_slab = {name=materials.roof_middle};
 	if( sizex%2==0 ) then
 		for dz = p.z, p.z+sizez do
-			vm:set_node_at( pswap({x=p.x+xhalf,y=p.y+xhalf,z=dz},swap), node_slab );
+			if( dy <= p_orig.ymax ) then
+				vm:set_node_at( pswap({x=p.x+xhalf,y=p.y+xhalf,z=dz},swap), node_slab );
+			else
+				vm:set_node_at( pswap({x=p.x+xhalf,y=p_orig.ymax,z=dz},swap), node_slab );
+			end
 		end
 	end
 
@@ -196,11 +210,13 @@ simple_houses.build_roof_and_gable = function( p_orig, sizex, sizez, in_x_direct
 		             param2 = (materials.color or 0 )}; -- color of the gable
 	for dx = 0,xhalf do
 		for dy = p.y, p.y-1+dx do
-			vm:set_node_at( pswap({x=p.x+sizex-dx,y=dy,z=p.z+sizez-1}, swap), node_gable );
-			vm:set_node_at( pswap({x=p.x+      dx,y=dy,z=p.z+sizez-1}, swap), node_gable );
+			if( dy < p_orig.ymax ) then
+				vm:set_node_at( pswap({x=p.x+sizex-dx,y=dy,z=p.z+sizez-1}, swap), node_gable );
+				vm:set_node_at( pswap({x=p.x+      dx,y=dy,z=p.z+sizez-1}, swap), node_gable );
 
-			vm:set_node_at( pswap({x=p.x+sizex-dx,y=dy,z=p.z      +1}, swap), node_gable );
-			vm:set_node_at( pswap({x=p.x+      dx,y=dy,z=p.z      +1}, swap), node_gable );
+				vm:set_node_at( pswap({x=p.x+sizex-dx,y=dy,z=p.z      +1}, swap), node_gable );
+				vm:set_node_at( pswap({x=p.x+      dx,y=dy,z=p.z      +1}, swap), node_gable );
+			end
 		end
 	end
 end
@@ -363,8 +379,9 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 		materials.window_at_height = {0,0,1,0,0};
 	end
 
+	local max_floors_possible = math.floor((maxp.y+16-1-p.y)/#materials.window_at_height);
 	-- how many floors will the house have?
-	materials.floors = math.random(1,5);
+	materials.floors = math.random(1,max_floors_possible-1);
 	-- TODO: buildings with colored materials ought to have more floors and more often a flat roof
 	-- TODO: logcabin-style houses ought to have at max 2 floors and almost never a flat roof
 	-- TODO: houses with wood ought to have 1-3 floors at max
@@ -372,6 +389,13 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 	if( math.random(1,2)==1) then
 		materials.flat_roof = true;
 	end
+	local height = materials.floors * #materials.window_at_height +1;
+	if( materials.flat_roof ) then
+		p.ymax = math.min( maxp.y+16, p.y + height + math.ceil( math.min( sizex, sizez )/2 ));
+	else
+		p.ymax = math.min( maxp.y+16, p.y + height + 4);
+	end
+	p.ymax = math.min( maxp.y+16, p.ymax );
 	return simple_houses.simple_hut_place_hut( p, sizex, sizez, materials, heightmap );
 end
 
@@ -389,7 +413,7 @@ simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heigh
 	local vm = minetest.get_voxel_manip();
 	local minp2, maxp2 = vm:read_from_map(
 		{x=p.x - sizex, y=p.y-1, z=p.z - sizez },
-		{x=p.x, y=p.y+math.max(sizex,sizez)*2, z=p.z});
+		{x=p.x, y=p.ymax, z=p.z});
 
 	-- replaicate the pattern of windows for the other floors
 	local first_floor_height = #materials.window_at_height;
@@ -418,7 +442,7 @@ simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heigh
 
 	-- each floor is 4 blocks heigh
 	local roof_starts_at = p.y + (4*materials.floors);
-	p_start = {x=p.x-sizex, y=roof_starts_at, z=p.z-sizez};
+	p_start = {x=p.x-sizex, y=roof_starts_at, z=p.z-sizez, ymax = p.ymax};
 	-- build the roof
 	if( materials.flat_roof ) then
 		-- build a flat roof
