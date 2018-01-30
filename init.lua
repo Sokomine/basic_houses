@@ -28,6 +28,13 @@ simple_houses = {};
 --       Else you will see far less houses.
 simple_houses.max_per_mapchunk = 20;
 
+-- how many houses shall be generated on average per mapchunk?
+simple_houses.houses_wanted_per_mapchunk = 1;
+
+-- how many mapchunks have been generated since the server was started?
+simple_houses.mapchunks_processed = 0;
+-- how many houses have been generated in these mapchunks?
+simple_houses.houses_generated = 0;
 
 
 -- build either the two walls of the box that forms the house in x or z direction;
@@ -535,7 +542,19 @@ simple_houses.simple_hut_generate = function( heightmap, minp, maxp)
 end
 
 minetest.register_on_generated(function(minp, maxp, seed)
+	if( minp.y < -64 or minp.y > 500) then
+		return;
+	end
+	simple_houses.mapchunks_processed = simple_houses.mapchunks_processed + 1;
+	-- with each map chunk generated, there's more room where houses could be
+	if( ((simple_houses.mapchunks_processed * simple_houses.houses_wanted_per_mapchunk)
+	   - simple_houses.houses_generated < simple_houses.max_per_mapchunk)
+	-- some randomness to make it more intresting
+	 or (math.random(1,10)>1)) then
+		return;
+	end
 	local heightmap = minetest.get_mapgen_object('heightmap');
+	local houses_placed = 0;
 	for i=1,simple_houses.max_per_mapchunk do
 		local res = simple_houses.simple_hut_generate( heightmap, minp, maxp);
 		if( res and res.p1 and res.p2 ) then
@@ -543,6 +562,12 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					res.p2.i,
 					(res.p2.x-res.p1.x),
 					(res.p2.z-res.p1.z));
+			houses_placed = houses_placed + 1;
 		end
+	end
+	if( houses_placed > 0 ) then
+		simple_houses.houses_generated = simple_houses.houses_generated + houses_placed;
+--		print("Count: "..tostring( simple_houses.mapchunks_processed )..
+--			" Houses: "..tostring( simple_houses.houses_generated ));
 	end
 end);
