@@ -368,7 +368,12 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 
 	-- how many floors will the house have?
 	local max_floors_possible = math.floor((maxp.y+16-1-p.y)/#materials.window_at_height);
-	materials.floors = math.random(1,max_floors_possible-1);
+	if( math.random(1,5)==1) then
+		materials.floors = math.random(1,math.min(8,max_floors_possible-1));
+	else
+		materials.floors = math.random(1,math.min(4,max_floors_possible-1));
+	end
+
 
 	-- some houses may have a flat roof instead of a saddle roof
 	materials.flat_roof = false;
