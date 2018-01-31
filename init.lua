@@ -285,7 +285,6 @@ simple_houses.place_ladder = function( p, sizex, sizez, ladder_places, ladder_he
 	return res.used;
 end
 
-
 -- place the door into one of the reserved places
 simple_houses.place_door = function( p, sizex, sizez, door_places, wall_with_ladder, floor_height, vm )
 
@@ -302,6 +301,66 @@ simple_houses.place_door = function( p, sizex, sizez, door_places, wall_with_lad
 		end
 	end
 	return res.used;
+end
+
+-- the chest is placed on one of the upper floors; it contains
+-- additional building material
+simple_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_ladder, floor_height, vm, materials )
+	-- not each building needs a chest
+	if( math.random(1,2)>1 ) then
+		return;
+	end
+
+	local res = simple_houses.get_random_place( p, sizex, sizez, chest_places, -1, wall_with_ladder, 1 );
+	local height = floor_height[ math.random(2,#floor_height)];
+	-- translate wallmounted (for ladder) to facedir for chest
+	res.p2 = res.p2;
+	if(     res.p2 == 5 ) then
+		res.p2n = 2;
+	elseif( res.p2 == 4 ) then
+		res.p2n = 0;
+	elseif( res.p2 == 3 ) then
+		res.p2n = 3;
+	elseif( res.p2 == 2 ) then
+		res.p2n = 1;
+	end
+	-- determine target position
+	local pos = {x=res.x, y=height+1, z=res.z};
+	-- if plasterwork is installed: place a machine
+	if( materials.color and minetest.registered_nodes["plasterwork:machine"] and math.random(1,10)==1) then
+		vm:set_node_at( pos, {name=materials.walls, param2 = materials.color});
+		local pos2 = {x=res.x, y=height+2, z=res.z};
+		vm:set_node_at( pos2, {name="plasterwork:machine", param2 = res.p2n});
+		minetest.registered_nodes[  "plasterwork:machine" ].after_place_node(pos2, nil, nil);
+		local meta = minetest.get_meta( pos2);
+		meta:set_string( "target_node",  materials.walls );
+		meta:set_int(    "target_color", materials.color );
+		return;
+	end
+	-- place the chest
+	vm:set_node_at( pos, {name="default:chest", param2 = res.p2n});
+	-- fill chest with building material
+	minetest.registered_nodes[ "default:chest" ].on_construct( pos );
+	local meta = minetest.get_meta(pos);
+	local inv = meta:get_inventory();
+	local c = math.random(1,4);
+	for i=1,c do
+		local stack_name = materials.walls.." "..math.random(1,99);
+		if( materials.color ) then
+			stack_name = minetest.itemstring_with_palette( stack_name, materials.color );
+		end
+		inv:add_item( "main", stack_name );
+	end
+	inv:add_item( "main", materials.first_floor.." "..math.random(1,49) );
+	c = math.random(1,2);
+	for i=1,c do
+		inv:add_item( "main", materials.ceiling.." "..math.random(1,99) );
+	end
+	inv:add_item( "main", materials.glass.." "..math.random(1,20) );
+	if( not( materials.roof_flat )) then
+		inv:add_item( "main", materials.roof.." "..math.random(1,99) );
+		inv:add_item( "main", materials.roof_middle.." "..math.random(1,49) );
+	end
 end
 
 
@@ -530,6 +589,7 @@ simple_houses.simple_hut_place_hut = function( data, materials, heightmap )
 		reserved_places, #materials.window_at_height-1, materials.flat_roof, vm);
 
 	simple_houses.place_door( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm );
+	simple_houses.place_chest( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm, materials );
 
 	vm:write_to_map(true);
 	-- return where the hut has been placed
@@ -548,7 +608,6 @@ simple_houses.simple_hut_get_size_and_place = function( heightmap, minp, maxp)
 	end
 -- TODO: if more than 2-3 houses are placed, get voxelmanip for entire area instead of for each house
 -- TODO: avoid overlapping with mg_villages if that one is installed
--- TODO: place random chests with further building material
 	local sizex = math.random(8,maxsize);
 	local sizez = math.max( 8, math.min( maxsize, math.random( math.floor(sizex/4), sizex*2 )));
 	-- chooses random materials and a random place without destroying the landscape
