@@ -305,8 +305,8 @@ simple_houses.place_door = function( p, sizex, sizez, door_places, wall_with_lad
 end
 
 
--- locate a place for the "hut" and place it
-simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp, sizex, sizez, minheight, maxheight )
+-- locate a place for the "hut"
+simple_houses.simple_hut_find_place = function( heightmap, minp, maxp, sizex, sizez, minheight, maxheight )
 
 	local res = handle_schematics.find_flat_land_get_candidates_fast( heightmap, minp, maxp,
 		sizex, sizez, minheight, maxheight );
@@ -337,8 +337,12 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 	local chunksize = maxp.x - minp.x + 1;
 	-- translate index back into coordinates
 	local p = {x=minp.x+(i%chunksize)-1, y=heightmap[ i ], z=minp.z+math.floor(i/chunksize), i=i};
+	return {p1={x=p.x - sizex, y=p.y, z=p.z - sizez }, p2=p, sizex=sizex, sizez=sizez};
+end
 
 
+-- actually build the hut
+simple_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk, chunk_ends_at_height )
 	-- select some random materials, height etc.
 	-- wood is always useful
 	local wood_types = replacements_group['wood'].found;
@@ -374,7 +378,7 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 	end
 
 	-- how many floors will the house have?
-	local max_floors_possible = math.floor((maxp.y+16-1-p.y)/#materials.window_at_height);
+	local max_floors_possible = math.floor((chunk_ends_at_height-1-data.p2.y)/#materials.window_at_height);
 	if( math.random(1,5)==1) then
 		materials.floors = math.random(1,math.min(8,max_floors_possible-1));
 	else
@@ -430,6 +434,14 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 			materials.walls = wall_options[ math.random(1,#wall_options)];
 		end
 	end
+	-- if there are less than three houses in a mapchunk: do not place skyscrapers
+	if( amount_in_this_mapchunk < 3 ) then
+		-- use saddle roof instead of flat one
+		materials.roof_flat = false;
+		-- at max two floors
+		materials.floors = math.min( 2, materials.floors );
+	end
+
 	materials.gable = materials.walls;
 	if( math.random(1,3)==1 ) then
 		materials.gable = wood_types[ math.random(1,#wood_types)];
@@ -437,24 +449,26 @@ simple_houses.simple_hut_find_place_and_build = function( heightmap, minp, maxp,
 
 	local height = materials.floors * #materials.window_at_height +1;
 	if( materials.flat_roof ) then
-		p.ymax = math.min( maxp.y+16, p.y + height + math.ceil( math.min( sizex, sizez )/2 ));
+		data.p2.ymax = math.min( chunk_ends_at_height, data.p2.y + height + math.ceil( math.min( data.sizex, data.sizez )/2 ));
 	else
-		p.ymax = math.min( maxp.y+16, p.y + height + 4);
+		data.p2.ymax = math.min( chunk_ends_at_height, data.p2.y + height + 4);
 	end
-	p.ymax = math.min( maxp.y+16, p.ymax );
-	return simple_houses.simple_hut_place_hut( p, sizex, sizez, materials, heightmap );
+	data.p2.ymax = math.min( chunk_ends_at_height, data.p2.ymax );
+	data.materials = materials;
+	return data;
 end
 
 
 -- actually build the "hut"
-simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heightmap )
-	sizex = sizex-1;
-	sizez = sizez-1;
+simple_houses.simple_hut_place_hut = function( data, materials, heightmap )
+	local p = data.p2;
+	local sizex = data.sizex-1;
+	local sizez = data.sizez-1;
 	-- house too small or too large
 	if( sizex < 3 or sizez < 3 or sizex>64 or sizez>64) then
 		return nil;
 	end
---	print( "  Placing house at "..minetest.pos_to_string( p ));
+	print( "  Placing house at "..minetest.pos_to_string( p ));
 
 	local vm = minetest.get_voxel_manip();
 	local minp2, maxp2 = vm:read_from_map(
@@ -523,7 +537,7 @@ simple_houses.simple_hut_place_hut = function( p, sizex, sizez, materials, heigh
 end
 
 
-simple_houses.simple_hut_generate = function( heightmap, minp, maxp)
+simple_houses.simple_hut_get_size_and_place = function( heightmap, minp, maxp)
 	if( minp.y < -64 or minp.y > 500 or not(heightmap)) then
 		return;
 	end
@@ -534,12 +548,14 @@ simple_houses.simple_hut_generate = function( heightmap, minp, maxp)
 	end
 -- TODO: if more than 2-3 houses are placed, get voxelmanip for entire area instead of for each house
 -- TODO: avoid overlapping with mg_villages if that one is installed
+-- TODO: place random chests with further building material
 	local sizex = math.random(8,maxsize);
 	local sizez = math.max( 8, math.min( maxsize, math.random( math.floor(sizex/4), sizex*2 )));
 	-- chooses random materials and a random place without destroying the landscape
 	-- minheight 2: one above water level; avoid below water level and places on ice
-	return simple_houses.simple_hut_find_place_and_build( heightmap, minp, maxp, sizex, sizez, 2, 1000 );
+	return simple_houses.simple_hut_find_place( heightmap, minp, maxp, sizex, sizez, 2, 1000 );
 end
+
 
 minetest.register_on_generated(function(minp, maxp, seed)
 	if( minp.y < -64 or minp.y > 500) then
@@ -547,24 +563,31 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	end
 	simple_houses.mapchunks_processed = simple_houses.mapchunks_processed + 1;
 	-- with each map chunk generated, there's more room where houses could be
-	if( ((simple_houses.mapchunks_processed * simple_houses.houses_wanted_per_mapchunk)
-	   - simple_houses.houses_generated < simple_houses.max_per_mapchunk)
+	local missing = (simple_houses.mapchunks_processed * simple_houses.houses_wanted_per_mapchunk)
+           - simple_houses.houses_generated;
 	-- some randomness to make it more intresting
-	 or (math.random(1,10)>1)) then
+	if( missing < simple_houses.max_per_mapchunk and math.random(1,10)>1) then
 		return;
 	end
 	local heightmap = minetest.get_mapgen_object('heightmap');
 	local houses_placed = 0;
+	local house_data = {};
 	for i=1,simple_houses.max_per_mapchunk do
-		local res = simple_houses.simple_hut_generate( heightmap, minp, maxp);
+		local res = simple_houses.simple_hut_get_size_and_place( heightmap, minp, maxp);
 		if( res and res.p1 and res.p2 ) then
 			handle_schematics.mark_flat_land_as_used(heightmap, minp, maxp,
 					res.p2.i,
 					(res.p2.x-res.p1.x),
 					(res.p2.z-res.p1.z));
+			table.insert( house_data, res );
 			houses_placed = houses_placed + 1;
 		end
 	end
+	for i,data in ipairs( house_data ) do
+		local res = simple_houses.simple_hut_get_materials( data, #house_data, maxp.y+16 );
+		simple_houses.simple_hut_place_hut( data, res.materials, heightmap );
+	end
+
 	if( houses_placed > 0 ) then
 		simple_houses.houses_generated = simple_houses.houses_generated + houses_placed;
 --		print("Count: "..tostring( simple_houses.mapchunks_processed )..
