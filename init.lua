@@ -655,7 +655,10 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local missing = (basic_houses.mapchunks_processed * basic_houses.houses_wanted_per_mapchunk)
            - basic_houses.houses_generated;
 	-- some randomness to make it more intresting
-	if( missing < basic_houses.max_per_mapchunk and math.random(1,10)>1) then
+	-- also place a house in the first mapchunk possible in order to "greet" the player
+	-- with it and assure the player that the mod is installed
+	if( (basic_houses.houses_generated>1)
+	  and missing < basic_houses.max_per_mapchunk and math.random(1,10)>1) then
 		return;
 	end
 	local heightmap = minetest.get_mapgen_object('heightmap');
