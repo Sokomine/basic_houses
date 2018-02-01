@@ -15,6 +15,7 @@
 --     for the house the chest spawned in
 --   * houses made out of plasterwork nodes may receive a machine from
 --     plasterwork instead of a chest
+--   * can be used with the RealTest game as well
 -- Technical stuff:
 --   * used function from handle_schematics to mark parts of the heightmap as used
 --   * glass panes, glass and obisidan glass are more common than bars
@@ -25,21 +26,62 @@
 --   * cavegen may eat holes into the ground below the house
 --   * houses may very seldom overlap
 
-simple_houses = {};
+basic_houses = {};
 
 -- generate at max this many houses per mapchunk;
 -- Note: This amount will likely only spawn if your mapgen is very flat.
 --       Else you will see far less houses.
-simple_houses.max_per_mapchunk = 20;
+basic_houses.max_per_mapchunk = 20;
 
 -- how many houses shall be generated on average per mapchunk?
-simple_houses.houses_wanted_per_mapchunk = 1;
+basic_houses.houses_wanted_per_mapchunk = 1;
 
 -- how many mapchunks have been generated since the server was started?
-simple_houses.mapchunks_processed = 0;
+basic_houses.mapchunks_processed = 0;
 -- how many houses have been generated in these mapchunks?
-simple_houses.houses_generated = 0;
+basic_houses.houses_generated = 0;
 
+
+-- materials the houses can be made out of
+-- allows to reach upper floors
+basic_houses.ladder = "default:ladder_steel";
+-- gets placed over the door
+basic_houses.lamp   = "default:meselamp";
+-- floor at the entrance level of the house
+basic_houses.floor = "default:brick";
+-- placed randomly in some houses
+basic_houses.chest = "default:chest";
+-- glass can be glass panes, iron bars or solid glass
+basic_houses.glass = {"xpanes:pane_flat","xpanes:pane_flat","xpanes:pane_flat",
+			"default:glass","default:glass",
+			"default:obsidian_glass",
+			"xpanes:bar_flat"};
+-- some walls are tree logs, some wooden planks, some colored plasterwork (if installed)
+-- - and some nodes are made out of these materials here
+basic_houses.walls = {"default:brick", "default:stonebrick", "default:desert_stonebrick",
+	"default:sandstonebrick", "default:desert_stonebrick", "default:silver_sandstone_brick",
+	"default:obsidianbrick", "default:stone_block", "default:sandstone_block",
+	"default:desert_sandstone_block", "default:silver_sandstone_block", "default:obsidian_block"};
+-- doors
+basic_houses.door_bottom = "doors:door_wood_a";
+basic_houses.door_top    = "doors:hidden";
+
+
+-- if the realtest game is choosen: adjust materials
+if( minetest.get_modpath("core") and minetest.get_modpath("trees")) then
+	basic_houses.ladder = "trees:pine_ladder";
+	basic_houses.lamp   = "light:streetlight";
+	basic_houses.glass  = {"xpanes:pane_5","xpanes:pane_5","xpanes:pane_5",
+			"default:glass","default:glass"};
+	basic_houses.walls = {"default:clay", "default:stone", "default:stone_bricks", "default:stone_flat",
+		"default:stone_macadam", "default:desert_stone", "default:desert_stone_bricks",
+		"default:desert_stone_flat", "default:desert_stone_macadam", "decorations:malachite_block",
+		"decorations:cinnabar_block", "decorations:gypsum_block", "decorations:jet_block",
+		"decorations:lazurite_block", "decorations:olivine_block", "decorations:petrified_wood_block",
+		"decorations:satinspar_block", "decorations:selenite_block", "decorations:serpentine_block"};
+	basic_houses.door_bottom = "doors:door_pine_b_1";
+	basic_houses.door_top    = "doors:door_pine_t_1";
+end
 
 -- build either the two walls of the box that forms the house in x or z direction;
 -- windows are added randomly
@@ -55,7 +97,7 @@ simple_houses.houses_generated = 0;
 --    rotation_1  param2 for materials.wall nodes for the first wall
 --    rotation_2  param2 for materials.wall nodes for the second wall
 --    vm          voxel manipulator
-simple_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, materials, vm)
+basic_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, materials, vm)
 
 	local v = 0;
 	if( not( in_x_direction )) then
@@ -170,9 +212,9 @@ end
 
 
 -- builds a roof with gable;
--- takes the same parameters as simple_houses.build_two_walls (apart from the
+-- takes the same parameters as basic_houses.build_two_walls (apart from the
 -- window_at_height parameter which is unnecessary here)
-simple_houses.build_roof_and_gable = function( p_orig, sizex, sizez, in_x_direction,
+basic_houses.build_roof_and_gable = function( p_orig, sizex, sizez, in_x_direction,
 		materials, rotation_1, rotation_2, vm)
 
 	local p = {x=p_orig.x, y=p_orig.y, z=p_orig.z};
@@ -239,7 +281,7 @@ end
 
 -- four places have been reserved previously (=no window placed) and
 -- can be used for ladders, doors etc.
-simple_houses.get_random_place = function( p, sizex, sizez, places, use_this_one, already_used, offset )
+basic_houses.get_random_place = function( p, sizex, sizez, places, use_this_one, already_used, offset )
 	local i = math.random(1,4);
 	if( i==already_used) then
 		if( i>1) then
@@ -270,8 +312,8 @@ end
 -- add a ladder from bottom to top (staircases would be nicer but are too difficult to do well)
 -- if flat_roof is false, the ladder needs to be placed on the smaller side so that people can
 --   actually climb it;
--- ladder_places are the special places simple_houses.build_two_walls(..) has reserved
-simple_houses.place_ladder = function( p, sizex, sizez, ladder_places, ladder_height, flat_roof, vm )
+-- ladder_places are the special places basic_houses.build_two_walls(..) has reserved
+basic_houses.place_ladder = function( p, sizex, sizez, ladder_places, ladder_height, flat_roof, vm )
 	-- place the ladder at the galbe side in houses with a real roof (else
 	-- climbing the ladder up to the roof would fail due to lack of room)
 	local use_place = nil;
@@ -281,8 +323,8 @@ simple_houses.place_ladder = function( p, sizex, sizez, ladder_places, ladder_he
 		use_place = math.random(3,4);
 	end
 	-- select one of the four reserved places
-	local res = simple_houses.get_random_place( p, sizex, sizez, ladder_places, use_place, -1, 1 );
-	local ladder_node = {name="default:ladder_steel", param2 = res.p2};
+	local res = basic_houses.get_random_place( p, sizex, sizez, ladder_places, use_place, -1, 1 );
+	local ladder_node = {name=basic_houses.ladder, param2 = res.p2};
 	-- actually place the ladders
 	for height=p.y+1, p.y + ladder_height do
 		vm:set_node_at( {x=res.x, y=height, z=res.z}, ladder_node );
@@ -291,18 +333,18 @@ simple_houses.place_ladder = function( p, sizex, sizez, ladder_places, ladder_he
 end
 
 -- place the door into one of the reserved places
-simple_houses.place_door = function( p, sizex, sizez, door_places, wall_with_ladder, floor_height, vm )
+basic_houses.place_door = function( p, sizex, sizez, door_places, wall_with_ladder, floor_height, vm )
 
-	local res = simple_houses.get_random_place( p, sizex, sizez, door_places, -1, wall_with_ladder, 0 );
-	vm:set_node_at( {x=res.x, y=p.y+1, z=res.z}, {name="doors:door_wood_a", param2 = 0 });
-	vm:set_node_at( {x=res.x, y=p.y+2, z=res.z}, {name="doors:hidden"});
+	local res = basic_houses.get_random_place( p, sizex, sizez, door_places, -1, wall_with_ladder, 0 );
+	vm:set_node_at( {x=res.x, y=p.y+1, z=res.z}, {name=basic_houses.door_bottom, param2 = 0 });
+	vm:set_node_at( {x=res.x, y=p.y+2, z=res.z}, {name=basic_houses.door_top, param2 = 0});
 	-- light so that the door can be found
-	vm:set_node_at( {x=res.x, y=p.y+3, z=res.z}, {name="default:meselamp"});
+	vm:set_node_at( {x=res.x, y=p.y+3, z=res.z}, {name=basic_houses.lamp});
 
 	-- add some light to the upper floors as well
 	for i,height in ipairs( floor_height ) do
 		if( i>2) then
-			vm:set_node_at( {x=res.x,y=height-1,z=res.z},{name="default:meselamp"});
+			vm:set_node_at( {x=res.x,y=height-1,z=res.z},{name=basic_houses.lamp});
 		end
 	end
 	return res.used;
@@ -310,13 +352,13 @@ end
 
 -- the chest is placed on one of the upper floors; it contains
 -- additional building material
-simple_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_ladder, floor_height, vm, materials )
+basic_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_ladder, floor_height, vm, materials )
 	-- not each building needs a chest
 	if( math.random(1,2)>1 ) then
 		return;
 	end
 
-	local res = simple_houses.get_random_place( p, sizex, sizez, chest_places, -1, wall_with_ladder, 1 );
+	local res = basic_houses.get_random_place( p, sizex, sizez, chest_places, -1, wall_with_ladder, 1 );
 	local height = floor_height[ math.random(2,#floor_height)];
 	-- translate wallmounted (for ladder) to facedir for chest
 	res.p2 = res.p2;
@@ -343,9 +385,9 @@ simple_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_l
 		return;
 	end
 	-- place the chest
-	vm:set_node_at( pos, {name="default:chest", param2 = res.p2n});
+	vm:set_node_at( pos, {name=basic_houses.chest, param2 = res.p2n});
 	-- fill chest with building material
-	minetest.registered_nodes[ "default:chest" ].on_construct( pos );
+	minetest.registered_nodes[ basic_houses.chest ].on_construct( pos );
 	local meta = minetest.get_meta(pos);
 	local inv = meta:get_inventory();
 	local c = math.random(1,4);
@@ -370,7 +412,7 @@ end
 
 
 -- locate a place for the "hut"
-simple_houses.simple_hut_find_place = function( heightmap, minp, maxp, sizex, sizez, minheight, maxheight )
+basic_houses.simple_hut_find_place = function( heightmap, minp, maxp, sizex, sizez, minheight, maxheight )
 
 	local res = handle_schematics.find_flat_land_get_candidates_fast( heightmap, minp, maxp,
 		sizex, sizez, minheight, maxheight );
@@ -406,26 +448,21 @@ end
 
 
 -- actually build the hut
-simple_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk, chunk_ends_at_height )
+basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk, chunk_ends_at_height )
 	-- select some random materials, height etc.
 	-- wood is always useful
 	local wood_types = replacements_group['wood'].found;
 	local wood       = wood_types[ math.random(1,#wood_types)];
 	local wood_roof  = wood_types[ math.random(1,#wood_types)];
-	-- glass can be glass panes, iron bars or solid glass
-	local glass_materials = {"xpanes:pane_flat","xpanes:pane_flat","xpanes:pane_flat",
-			"default:glass","default:glass",
-			"default:obsidian_glass",
-			"xpanes:bar_flat"};
 	-- choose random materials
 	local materials = {
 		walls = nil,
 		color = nil,
 		gable = nil,
-		glass         = glass_materials[ math.random( 1,#glass_materials )],
+		glass         = basic_houses.glass[ math.random( 1,#basic_houses.glass )],
 		roof          = replacements_group['wood'].data[ wood_roof ][7], -- stair
 		roof_middle   = replacements_group['wood'].data[ wood_roof ][8], -- slab
-		first_floor   = "default:brick",
+		first_floor   = basic_houses.floor,
 		ceiling       = wood_types[ math.random(1,#wood_types)],
 		wall_orients  = {0,1,2,3},
 		glass_orients = {12,18,9,7},
@@ -483,19 +520,7 @@ simple_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk
 			materials.flat_roof = false;
 			materials.wall_orients = {12,18,9,7};
 		else
-			local wall_options = {"default:brick",
-				"default:stonebrick",
-				"default:desert_stonebrick",
-				"default:sandstonebrick",
-				"default:desert_stonebrick",
-				"default:silver_sandstone_brick",
-				"default:obsidianbrick",
-				"default:stone_block",
-				"default:sandstone_block",
-				"default:desert_sandstone_block",
-				"default:silver_sandstone_block",
-				"default:obsidian_block"};
-			materials.walls = wall_options[ math.random(1,#wall_options)];
+			materials.walls = basic_houses.walls[ math.random(1,#basic_houses.walls)];
 		end
 	end
 	-- if there are less than three houses in a mapchunk: do not place skyscrapers
@@ -524,7 +549,7 @@ end
 
 
 -- actually build the "hut"
-simple_houses.simple_hut_place_hut = function( data, materials, heightmap )
+basic_houses.simple_hut_place_hut = function( data, materials, heightmap )
 	local p = data.p2;
 	local sizex = data.sizex-1;
 	local sizez = data.sizez-1;
@@ -560,9 +585,9 @@ simple_houses.simple_hut_place_hut = function( data, materials, heightmap )
 
 	local p_start = {x=p.x-sizex+1, y=p.y-1, z=p.z-sizez+1};
 	-- build the two walls in x direction
-	local s1 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, true,  materials, vm ); --12, 18, vm );
+	local s1 = basic_houses.build_two_walls(p_start, sizex-2, sizez-2, true,  materials, vm ); --12, 18, vm );
 	-- build the two walls in z direction
-	local s2 = simple_houses.build_two_walls(p_start, sizex-2, sizez-2, false, materials, vm ); -- 9,  7, vm );
+	local s2 = basic_houses.build_two_walls(p_start, sizex-2, sizez-2, false, materials, vm ); -- 9,  7, vm );
 
 	-- each floor is 4 blocks heigh
 	local roof_starts_at = p.y + (4*materials.floors);
@@ -571,9 +596,9 @@ simple_houses.simple_hut_place_hut = function( data, materials, heightmap )
 	if( materials.flat_roof ) then
 		-- build a flat roof
 	elseif( sizex < sizez ) then
-		simple_houses.build_roof_and_gable(p_start, sizex, sizez, true,  materials, 1, 3, vm );
+		basic_houses.build_roof_and_gable(p_start, sizex, sizez, true,  materials, 1, 3, vm );
 	else
-		simple_houses.build_roof_and_gable(p_start, sizex, sizez, false, materials, 0, 2, vm );
+		basic_houses.build_roof_and_gable(p_start, sizex, sizez, false, materials, 0, 2, vm );
 	end
 
 	local do_ceiling = ( math.min( sizex, sizez )>4 );
@@ -590,11 +615,11 @@ simple_houses.simple_hut_place_hut = function( data, materials, heightmap )
 	-- windows start at odd indices or not
 	local reserved_places = {s1[1], s1[2], s2[1], s2[2], s1[3], s2[3]};
 	p_start = {x=p.x-sizex, y=p.y, z=p.z-sizez};
-	local wall_with_ladder = simple_houses.place_ladder( p_start, sizex, sizez,
+	local wall_with_ladder = basic_houses.place_ladder( p_start, sizex, sizez,
 		reserved_places, #materials.window_at_height-1, materials.flat_roof, vm);
 
-	simple_houses.place_door( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm );
-	simple_houses.place_chest( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm, materials );
+	basic_houses.place_door( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm );
+	basic_houses.place_chest( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm, materials );
 
 	vm:write_to_map(true);
 	-- return where the hut has been placed
@@ -602,7 +627,7 @@ simple_houses.simple_hut_place_hut = function( data, materials, heightmap )
 end
 
 
-simple_houses.simple_hut_get_size_and_place = function( heightmap, minp, maxp)
+basic_houses.simple_hut_get_size_and_place = function( heightmap, minp, maxp)
 	if( minp.y < -64 or minp.y > 500 or not(heightmap)) then
 		return;
 	end
@@ -617,7 +642,7 @@ simple_houses.simple_hut_get_size_and_place = function( heightmap, minp, maxp)
 	local sizez = math.max( 8, math.min( maxsize, math.random( math.floor(sizex/4), sizex*2 )));
 	-- chooses random materials and a random place without destroying the landscape
 	-- minheight 2: one above water level; avoid below water level and places on ice
-	return simple_houses.simple_hut_find_place( heightmap, minp, maxp, sizex, sizez, 2, 1000 );
+	return basic_houses.simple_hut_find_place( heightmap, minp, maxp, sizex, sizez, 2, 1000 );
 end
 
 
@@ -625,19 +650,19 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	if( minp.y < -64 or minp.y > 500) then
 		return;
 	end
-	simple_houses.mapchunks_processed = simple_houses.mapchunks_processed + 1;
+	basic_houses.mapchunks_processed = basic_houses.mapchunks_processed + 1;
 	-- with each map chunk generated, there's more room where houses could be
-	local missing = (simple_houses.mapchunks_processed * simple_houses.houses_wanted_per_mapchunk)
-           - simple_houses.houses_generated;
+	local missing = (basic_houses.mapchunks_processed * basic_houses.houses_wanted_per_mapchunk)
+           - basic_houses.houses_generated;
 	-- some randomness to make it more intresting
-	if( missing < simple_houses.max_per_mapchunk and math.random(1,10)>1) then
+	if( missing < basic_houses.max_per_mapchunk and math.random(1,10)>1) then
 		return;
 	end
 	local heightmap = minetest.get_mapgen_object('heightmap');
 	local houses_placed = 0;
 	local house_data = {};
-	for i=1,simple_houses.max_per_mapchunk do
-		local res = simple_houses.simple_hut_get_size_and_place( heightmap, minp, maxp);
+	for i=1,basic_houses.max_per_mapchunk do
+		local res = basic_houses.simple_hut_get_size_and_place( heightmap, minp, maxp);
 		if( res and res.p1 and res.p2 ) then
 			handle_schematics.mark_flat_land_as_used(heightmap, minp, maxp,
 					res.p2.i,
@@ -648,13 +673,13 @@ minetest.register_on_generated(function(minp, maxp, seed)
 		end
 	end
 	for i,data in ipairs( house_data ) do
-		local res = simple_houses.simple_hut_get_materials( data, #house_data, maxp.y+16 );
-		simple_houses.simple_hut_place_hut( data, res.materials, heightmap );
+		local res = basic_houses.simple_hut_get_materials( data, #house_data, maxp.y+16 );
+		basic_houses.simple_hut_place_hut( data, res.materials, heightmap );
 	end
 
 	if( houses_placed > 0 ) then
-		simple_houses.houses_generated = simple_houses.houses_generated + houses_placed;
---		print("Count: "..tostring( simple_houses.mapchunks_processed )..
---			" Houses: "..tostring( simple_houses.houses_generated ));
+		basic_houses.houses_generated = basic_houses.houses_generated + houses_placed;
+--		print("Count: "..tostring( basic_houses.mapchunks_processed )..
+--			" Houses: "..tostring( basic_houses.houses_generated ));
 	end
 end);
