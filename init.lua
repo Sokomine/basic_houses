@@ -577,10 +577,13 @@ basic_houses.simple_hut_place_hut = function( data, materials, heightmap )
 	end
 	table.insert( floor_height, floor_height[ #floor_height] + first_floor_height-1);
 	if( materials.flat_roof ) then
+		-- the upper floor will form the roof of the house and is made out of
+		-- its wall material
 		table.insert( floor_materials, {name=materials.walls, param2 = (materials.color or 12)});
 		table.insert( materials.window_at_height, 0 );
 	else
-		table.insert( floor_materials, {name=materials.walls, param2 = (materials.color or 12)});
+		-- the house uses a saddle roof; the ceiling will use wood
+		table.insert( floor_materials, {name=materials.ceiling, param2 = (materials.color or 12)});
 	end
 
 	local p_start = {x=p.x-sizex+1, y=p.y-1, z=p.z-sizez+1};
