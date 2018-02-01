@@ -11,6 +11,10 @@
 --     no mini-house for elevator/ladder on top of skyscrapers, ...)
 --   * if the saddle roof does not fit into the height volume that is
 --     reserved for the house, the top of the roof is made flat
+--   * some random houses receive a chest with further building material
+--     for the house the chest spawned in
+--   * houses made out of plasterwork nodes may receive a machine from
+--     plasterwork instead of a chest
 -- Technical stuff:
 --   * used function from handle_schematics to mark parts of the heightmap as used
 --   * glass panes, glass and obisidan glass are more common than bars
@@ -125,6 +129,7 @@ simple_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, mater
 		end
 		-- actually build the wall from bottom to top
 		for height = 1,wall_height do
+			local node = nil;
 			-- if there is a window in this wall...
 			if( materials.window_at_height[ height ]==1 and wall_1_has_window) then
 				node = node_glass_1;
@@ -327,7 +332,7 @@ simple_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_l
 	-- determine target position
 	local pos = {x=res.x, y=height+1, z=res.z};
 	-- if plasterwork is installed: place a machine
-	if( materials.color and minetest.registered_nodes["plasterwork:machine"] and math.random(1,10)==1) then
+	if( materials.color and minetest.global_exists("plasterwork") and math.random(1,10)==1) then
 		vm:set_node_at( pos, {name=materials.walls, param2 = materials.color});
 		local pos2 = {x=res.x, y=height+2, z=res.z};
 		vm:set_node_at( pos2, {name="plasterwork:machine", param2 = res.p2n});
@@ -452,7 +457,7 @@ simple_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk
 	end
 
 	-- which wall material shall be used?
-	if( plasterwork and math.random(1,2)==1 ) then
+	if( minetest.global_exists("plasterwork") and math.random(1,2)==1 ) then
 		-- colored plasterwork
 		materials.walls = plasterwork.node_list[ math.random(1, #plasterwork.node_list)];
 		materials.color = math.random(0,255);
