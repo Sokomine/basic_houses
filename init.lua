@@ -34,7 +34,13 @@ basic_houses = {};
 basic_houses.max_per_mapchunk = 20;
 
 -- how many houses shall be generated on average per mapchunk?
-basic_houses.houses_wanted_per_mapchunk = 1;
+basic_houses.houses_wanted_per_mapchunk = 0.5;
+
+-- even if there would not be any house here due to amount of houses
+-- generated beeing equal or larger than the amount of houses expected,
+-- there is still this additional chance (in percent) that the mapchunk
+-- will receive a house anyway (more randomness is good!)
+basic_houses.additional_chance = 5;
 
 -- how many mapchunks have been generated since the server was started?
 basic_houses.mapchunks_processed = 0;
@@ -655,19 +661,21 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	end
 	basic_houses.mapchunks_processed = basic_houses.mapchunks_processed + 1;
 	-- with each map chunk generated, there's more room where houses could be
-	local missing = (basic_houses.mapchunks_processed * basic_houses.houses_wanted_per_mapchunk)
+	local missing = math.floor(basic_houses.mapchunks_processed * basic_houses.houses_wanted_per_mapchunk)
            - basic_houses.houses_generated;
 	-- some randomness to make it more intresting
 	-- also place a house in the first mapchunk possible in order to "greet" the player
 	-- with it and assure the player that the mod is installed
 	if( (basic_houses.houses_generated>1)
-	  and missing < basic_houses.max_per_mapchunk and math.random(1,10)>1) then
+	  and missing < basic_houses.max_per_mapchunk and math.random(1,100)>basic_houses.additional_chance) then
 		return;
 	end
 	local heightmap = minetest.get_mapgen_object('heightmap');
 	local houses_placed = 0;
 	local house_data = {};
-	for i=1,basic_houses.max_per_mapchunk do
+	local anz_houses = math.random( math.min( missing, math.floor(basic_houses.max_per_mapchunk/2 )),
+					basic_houses.max_per_mapchunk );
+	for i=1,anz_houses do
 		local res = basic_houses.simple_hut_get_size_and_place( heightmap, minp, maxp);
 		if( res and res.p1 and res.p2 ) then
 			handle_schematics.mark_flat_land_as_used(heightmap, minp, maxp,
