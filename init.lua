@@ -677,7 +677,9 @@ minetest.register_on_generated(function(minp, maxp, seed)
 					basic_houses.max_per_mapchunk );
 	for i=1,anz_houses do
 		local res = basic_houses.simple_hut_get_size_and_place( heightmap, minp, maxp);
-		if( res and res.p1 and res.p2 ) then
+		if( res and res.p1 and res.p2
+		  and res.p2.x>=minp.x and res.p2.z>=minp.z
+		  and res.p2.x<=maxp.x and res.p2.z<=maxp.z) then
 			handle_schematics.mark_flat_land_as_used(heightmap, minp, maxp,
 					res.p2.i,
 					(res.p2.x-res.p1.x),
