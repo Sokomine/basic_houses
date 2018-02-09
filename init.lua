@@ -71,6 +71,9 @@ basic_houses.walls = {"default:brick", "default:stonebrick", "default:desert_sto
 -- doors
 basic_houses.door_bottom = "doors:door_wood_a";
 basic_houses.door_top    = "doors:hidden";
+-- make sure the place in front of the door will not get griefed by mapgen
+basic_houses.around_house = {"default:stone_block","default:sandstone_block",
+	"default:desert_sandstone_block", "default:silver_sandstone_block"};
 
 
 -- if the realtest game is choosen: adjust materials
@@ -87,6 +90,7 @@ if( minetest.get_modpath("core") and minetest.get_modpath("trees")) then
 		"decorations:satinspar_block", "decorations:selenite_block", "decorations:serpentine_block"};
 	basic_houses.door_bottom = "doors:door_pine_b_1";
 	basic_houses.door_top    = "doors:door_pine_t_1";
+	basic_houses.around_house = basic_houses.walls;
 end
 
 -- build either the two walls of the box that forms the house in x or z direction;
@@ -499,6 +503,8 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 		materials.flat_roof = true;
 	end
 
+	-- path around the house so that the door is accessible
+	materials.around_house = basic_houses.around_house[ math.random(1, #basic_houses.around_house )];
 	-- which wall material shall be used?
 	if( minetest.global_exists("plasterwork") and math.random(1,2)==1 ) then
 		-- colored plasterwork
@@ -619,6 +625,26 @@ basic_houses.simple_hut_place_hut = function( data, materials, heightmap )
 		end
 	end
 	end
+
+	local around_house_node = {name=materials.around_house, param2=0};
+	local air_node = {name="air"};
+	for dx = p.x-sizex, p.x do
+		-- path around the house
+		vm:set_node_at( {x=dx, y=p.y,   z=p.z-sizez}, around_house_node );
+		vm:set_node_at( {x=dx, y=p.y,   z=p.z      }, around_house_node );
+		-- make sure there is no snow blocking entrance
+		vm:set_node_at( {x=dx, y=p.y+1, z=p.z-sizez}, air_node );
+		vm:set_node_at( {x=dx, y=p.y+1, z=p.z      }, air_node );
+	end
+	for dz = p.z-sizez+1, p.z-1 do
+		-- path around the house
+		vm:set_node_at( {x=p.x-sizex, y=p.y,   z=dz}, around_house_node );
+		vm:set_node_at( {x=p.x,       y=p.y,   z=dz}, around_house_node );
+		-- make sure there is no snow blocking entrance
+		vm:set_node_at( {x=p.x-sizex, y=p.y+1, z=dz}, air_node );
+		vm:set_node_at( {x=p.x,       y=p.y+1, z=dz}, air_node );
+	end
+
 
 	-- index 1 and 2 are offsets in any of the walls; index 3 indicates if the
 	-- windows start at odd indices or not
