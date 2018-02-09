@@ -714,8 +714,15 @@ minetest.register_on_generated(function(minp, maxp, seed)
 			houses_placed = houses_placed + 1;
 		end
 	end
+	-- use the same material around the houses in the entire mapchunk
+	local around_house_material = nil;
 	for i,data in ipairs( house_data ) do
 		local res = basic_houses.simple_hut_get_materials( data, #house_data, maxp.y+16 );
+		if( not( around_house_material )) then
+			around_house_material = res.materials.around_house;
+		else
+			res.materials.around_house = around_house_material;
+		end
 		basic_houses.simple_hut_place_hut( data, res.materials, heightmap );
 	end
 
