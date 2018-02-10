@@ -91,6 +91,37 @@ if( minetest.get_modpath("core") and minetest.get_modpath("trees")) then
 	basic_houses.door_bottom = "doors:door_pine_b_1";
 	basic_houses.door_top    = "doors:door_pine_t_1";
 	basic_houses.around_house = basic_houses.walls;
+-- if the MineClone2 game is choosen: adjust materials
+elseif( minetest.get_modpath("mcl_core")) then
+	local colors = {"red", "green", "blue", "light_blue", "black", "white",
+			"yellow", "brown", "orange"; "pink", "grey", "lime", "silver",
+			"magenta", "purple", "cyan"};
+	basic_houses.ladder = "mcl_core:ladder";
+	basic_houses.lamp   = "mcl_ocean:sea_lantern";
+	basic_houses.floor  = "mcl_core:brick_block";
+	basic_houses.chest  = "mcl_chests:chest";
+
+	basic_houses.glass = {"mcl_core:glass", "mcl_core:glass", "mcl_core:glass",
+			"xpanes:bar_flat"};
+	for i,k in ipairs( colors ) do
+		table.insert( basic_houses.glass, "mcl_core:glass_"..k );
+		table.insert( basic_houses.glass, "xpanes:pane_"..k.."_flat" );
+	end
+
+	basic_houses.walls = {"mcl_core:brick_block",
+		"mcl_core:stonebrick", "mcl_core:stonebrickcarved", "mcl_core:stonebrickcracked",
+		"mcl_core:stonebrickmossy","mcl_core:sandstonecarved", "mcl_core:sandstonesmooth2",
+		"mcl_core:redsandstonecarved"};
+	for i,k in ipairs( colors ) do
+		table.insert( basic_houses.walls, "mcl_colorblocks:glazed_terracotta_"..k );
+		table.insert( basic_houses.walls, "mcl_colorblocks:hardened_clay_"..k );
+	end
+	basic_houses.around_house = { "mcl_core:stone_smooth", "mcl_core:granite_smooth",
+		"mcl_core:andesite_smooth", "mcl_core:diorite_smooth", "mcl_core:sandstonesmooth",
+		"mcl_core:sandstonecarved", "mcl_core:sandstonesmooth2",
+		"mcl_core:redsandstonesmooth", "mcl_core:redsandstonesmooth2"};
+	basic_houses.door_bottom = "mcl_doors:wooden_door_b_1";
+	basic_houses.door_top    = "mcl_doors:wooden_door_t_1";
 end
 
 -- build either the two walls of the box that forms the house in x or z direction;

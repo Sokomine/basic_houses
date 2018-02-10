@@ -1,3 +1,13 @@
-default
+default?
 handle_schematics
 plasterwork?
+mcl_core?
+mcl_oceacn?
+mcl_chests?
+xpanes?
+mcl_colorblocks?
+mcl_mapgen_core?
+mcl_strongholds?
+mcl_dungeons?
+tsm_railcorridors?
+mcl_doors?
