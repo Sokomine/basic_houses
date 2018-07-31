@@ -28,25 +28,18 @@
 
 basic_houses = {};
 
--- generate at max this many houses per mapchunk;
+-- generate count of building each 80x80 mapchunk, if chunk is assigned to village
 -- Note: This amount will likely only spawn if your mapgen is very flat.
 --       Else you will see far less houses.
+basic_houses.min_per_mapchunk = 10;
 basic_houses.max_per_mapchunk = 20;
 
--- how many houses shall be generated on average per mapchunk?
-basic_houses.houses_wanted_per_mapchunk = 0.5;
+-- Villages average distance in nodes (4x80)
+basic_houses.village_average = 160
 
--- even if there would not be any house here due to amount of houses
--- generated beeing equal or larger than the amount of houses expected,
--- there is still this additional chance (in percent) that the mapchunk
--- will receive a house anyway (more randomness is good!)
-basic_houses.additional_chance = 5;
-
--- how many mapchunks have been generated since the server was started?
-basic_houses.mapchunks_processed = 0;
--- how many houses have been generated in these mapchunks?
-basic_houses.houses_generated = 0;
-
+-- Villages min/max size in nodes (radius)
+basic_houses.village_min_size = 20
+basic_houses.village_max_size = 100
 
 -- materials the houses can be made out of
 -- allows to reach upper floors
@@ -790,6 +783,38 @@ basic_houses.simple_hut_get_size_and_place = function( heightmap, minp, maxp)
 	return basic_houses.simple_hut_find_place( heightmap, minp, maxp, sizex, sizez, 2, 1000 );
 end
 
+local villages = {}
+
+local function get_village_info(minp, maxp)
+	local half_avg = math.floor(basic_houses.village_average/2)
+	local anchor_pos_x = minp.x - (minp.x % basic_houses.village_average) + half_avg
+	local anchor_pos_z = minp.z - (minp.z % basic_houses.village_average) + half_avg
+
+	local seed = minetest.get_mapgen_params().seed + (anchor_pos_x * 65536 + anchor_pos_z) * 10
+	if villages[seed] then
+		return villages[seed]
+	end
+
+	local rng = PseudoRandom(seed)
+	local ret = {
+			seed = seed,
+			pos_x = anchor_pos_x + rng:next(-half_avg, half_avg),
+			pos_z = anchor_pos_z + rng:next(-half_avg, half_avg),
+			size = rng:next(basic_houses.village_min_size, basic_houses.village_max_size),
+			anz_houses = rng:next(basic_houses.min_per_mapchunk, basic_houses.max_per_mapchunk)
+	}
+	print("basic_houses: possible village "..seed.." at ("..ret.pos_x.." x "..ret.pos_z.."), size:"..ret.size..", desity: "..ret.anz_houses)
+	villages[seed] = ret
+	return ret
+end
+
+local function check_pos(village, pos)
+	local distance = math.hypot(village.pos_x - pos.x, village.pos_z - pos.z)
+	if distance <= village.size then
+		return true
+	end
+end
+
 
 -- mg_villages takes precedence; however, both mods can work together; it's just that mg_villages
 -- has to take care of all the things at mapgen time
@@ -798,33 +823,30 @@ if(not(minetest.get_modpath("mg_villages"))) then
 	if( minp.y < -64 or minp.y > 500) then
 		return;
 	end
-	basic_houses.mapchunks_processed = basic_houses.mapchunks_processed + 1;
-	-- with each map chunk generated, there's more room where houses could be
-	local missing = math.floor(basic_houses.mapchunks_processed * basic_houses.houses_wanted_per_mapchunk)
-           - basic_houses.houses_generated;
-	-- some randomness to make it more intresting
-	-- also place a house in the first mapchunk possible in order to "greet" the player
-	-- with it and assure the player that the mod is installed
-	if( (basic_houses.houses_generated>1)
-	  and missing < basic_houses.max_per_mapchunk and math.random(1,100)>basic_houses.additional_chance) then
-		return;
+	local village = get_village_info(minp, maxp)
+
+	if village.pos_x < minp.x or village.pos_x > maxp.x or
+			village.pos_z < minp.z or village.pos_z > maxp.z then
+		return
 	end
+
 	local heightmap = minetest.get_mapgen_object('heightmap');
 	local houses_placed = 0;
 	local house_data = {};
-	local anz_houses = math.random( math.min( missing, math.floor(basic_houses.max_per_mapchunk/2 )),
-					basic_houses.max_per_mapchunk );
-	for i=1,anz_houses do
+	for i=1, village.anz_houses do
 		local res = basic_houses.simple_hut_get_size_and_place( heightmap, minp, maxp);
+--		print(village.seed, i, res)
 		if( res and res.p1 and res.p2
-		  and res.p2.x>=minp.x and res.p2.z>=minp.z
-		  and res.p2.x<=maxp.x and res.p2.z<=maxp.z) then
-			handle_schematics.mark_flat_land_as_used(heightmap, minp, maxp,
-					res.p2.i,
-					(res.p2.x-res.p1.x),
-					(res.p2.z-res.p1.z));
-			table.insert( house_data, res );
-			houses_placed = houses_placed + 1;
+				and res.p2.x>=minp.x and res.p2.z>=minp.z
+				and res.p2.x<=maxp.x and res.p2.z<=maxp.z) then
+			if check_pos(village, res.p2) then
+				handle_schematics.mark_flat_land_as_used(heightmap, minp, maxp,
+						res.p2.i,
+						(res.p2.x-res.p1.x),
+						(res.p2.z-res.p1.z));
+				table.insert( house_data, res );
+				houses_placed = houses_placed + 1;
+			end
 		end
 	end
 	-- use the same material around the houses in the entire mapchunk
@@ -841,10 +863,8 @@ if(not(minetest.get_modpath("mg_villages"))) then
 		basic_houses.simple_hut_place_hut( data, res.materials, pr );
 	end
 
-	if( houses_placed > 0 ) then
-		basic_houses.houses_generated = basic_houses.houses_generated + houses_placed;
---		print("Count: "..tostring( basic_houses.mapchunks_processed )..
---			" Houses: "..tostring( basic_houses.houses_generated ));
+	if houses_placed > 0 then
+		print("basic_houses: Placed building in chunk:"..houses_placed)
 	end
    end);
 end
