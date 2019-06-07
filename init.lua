@@ -694,9 +694,13 @@ basic_houses.simple_hut_place_hut_using_vm = function( data, materials, vm )
 	-- each floor is 4 blocks heigh
 	local roof_starts_at = p.y + (4*materials.floors);
 	p_start = {x=p.x-sizex, y=roof_starts_at, z=p.z-sizez, ymax = p.ymax};
+	-- make the roof one higher - so that players/mobs can stay upright on
+	-- each roof floor node - this makes it easier to build staircases
+	p_start.y = p_start.y+1;
 	-- build the roof
 	if( materials.flat_roof ) then
 		-- build a flat roof
+		p_start.y = p_start.y-1; -- no need to make that higher
 	elseif( sizex < sizez ) then
 		basic_houses.build_roof_and_gable(p_start, sizex, sizez, true,  materials, 1, 3, vm );
 	else
