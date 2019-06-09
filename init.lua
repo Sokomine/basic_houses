@@ -138,7 +138,7 @@ end
 --    rotation_1  param2 for materials.wall nodes for the first wall
 --    rotation_2  param2 for materials.wall nodes for the second wall
 --    vm          voxel manipulator
-basic_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, materials, vm)
+basic_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, materials, vm, pr)
 
 	local v = 0;
 	if( not( in_x_direction )) then
@@ -179,15 +179,15 @@ basic_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, materi
 
 	-- place windows at even or odd rows? -> create some variety
 	local window_at_odd_row = false;
-	if( math.random(1,2)==1 ) then
+	if( pr:next(1,2)==1 ) then
 		window_at_odd_row = true;
 	end
 
 	-- place where a door or ladder might be added (no window there);
 	-- we need to avid adding ladders directly in front of windows or
 	-- placing doors right next to glass panes because that would look ugly
-	local special_wall_1 = math.random(3,size-3);
-	local special_wall_2 = math.random(3,size-3);
+	local special_wall_1 = pr:next(3,size-3);
+	local special_wall_2 = pr:next(3,size-3);
 	if( special_wall_2 == special_wall_1 ) then
 		special_wall_2 = special_wall_2 - 1;
 		if( special_wall_2 < 3 ) then
@@ -205,9 +205,9 @@ basic_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, materi
 			-- be able to see through the house)
 			local not_special = ( (lauf ~= special_wall_1) and (lauf ~= special_wall_2));
 			if( window_at_odd_row == (lauf%2==1)) then
-				wall_1_has_window = (not_special and ( math.random(1,3)~=3));
+				wall_1_has_window = (not_special and ( pr:next(1,3)~=3));
 			else
-				wall_2_has_window = (not_special and ( math.random(1,3)~=3));
+				wall_2_has_window = (not_special and ( pr:next(1,3)~=3));
 			end
 		end
 		-- actually build the wall from bottom to top
@@ -322,8 +322,8 @@ end
 
 -- four places have been reserved previously (=no window placed) and
 -- can be used for ladders, doors etc.
-basic_houses.get_random_place = function( p, sizex, sizez, places, use_this_one, already_used, offset )
-	local i = math.random(1,4);
+basic_houses.get_random_place = function( p, sizex, sizez, places, use_this_one, already_used, offset, pr )
+	local i = pr:next(1,4);
 	if( i==already_used) then
 		if( i>1) then
 			i = i-1;
@@ -354,17 +354,17 @@ end
 -- if flat_roof is false, the ladder needs to be placed on the smaller side so that people can
 --   actually climb it;
 -- ladder_places are the special places basic_houses.build_two_walls(..) has reserved
-basic_houses.place_ladder = function( p, sizex, sizez, ladder_places, ladder_height, flat_roof, vm )
+basic_houses.place_ladder = function( p, sizex, sizez, ladder_places, ladder_height, flat_roof, vm, pr )
 	-- place the ladder at the galbe side in houses with a real roof (else
 	-- climbing the ladder up to the roof would fail due to lack of room)
 	local use_place = nil;
 	if(     not( flat_roof) and (sizex <  sizez )) then
-		use_place = math.random(1,2);
+		use_place = pr:next(1,2);
 	elseif( not( flat_roof) and (sizex >= sizez )) then
-		use_place = math.random(3,4);
+		use_place = pr:next(3,4);
 	end
 	-- select one of the four reserved places
-	local res = basic_houses.get_random_place( p, sizex, sizez, ladder_places, use_place, -1, 1 );
+	local res = basic_houses.get_random_place( p, sizex, sizez, ladder_places, use_place, -1, 1, pr );
 	local ladder_node = {name=basic_houses.ladder, param2 = res.p2};
 	-- actually place the ladders
 	for height=p.y+1, p.y + ladder_height do
@@ -374,9 +374,9 @@ basic_houses.place_ladder = function( p, sizex, sizez, ladder_places, ladder_hei
 end
 
 -- place the door into one of the reserved places
-basic_houses.place_door = function( p, sizex, sizez, door_places, wall_with_ladder, floor_height, vm )
+basic_houses.place_door = function( p, sizex, sizez, door_places, wall_with_ladder, floor_height, vm, pr )
 
-	local res = basic_houses.get_random_place( p, sizex, sizez, door_places, -1, wall_with_ladder, 0 );
+	local res = basic_houses.get_random_place( p, sizex, sizez, door_places, -1, wall_with_ladder, 0, pr );
 	vm:set_node_at( {x=res.x, y=p.y+1, z=res.z}, {name=basic_houses.door_bottom, param2 = 0 });
 	vm:set_node_at( {x=res.x, y=p.y+2, z=res.z}, {name=basic_houses.door_top, param2 = 0});
 	-- light so that the door can be found
@@ -393,14 +393,14 @@ end
 
 -- the chest is placed on one of the upper floors; it contains
 -- additional building material
-basic_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_ladder, floor_height, vm, materials )
+basic_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_ladder, floor_height, vm, materials, pr )
 	-- not each building needs a chest
-	if( math.random(1,2)>1 ) then
+	if( pr:next(1,2)>1 ) then
 		return;
 	end
 
-	local res = basic_houses.get_random_place( p, sizex, sizez, chest_places, -1, wall_with_ladder, 1 );
-	local height = floor_height[ math.random(2,#floor_height)];
+	local res = basic_houses.get_random_place( p, sizex, sizez, chest_places, -1, wall_with_ladder, 1, pr );
+	local height = floor_height[ pr:next(2,#floor_height)];
 	-- translate wallmounted (for ladder) to facedir for chest
 	res.p2 = res.p2;
 	if(     res.p2 == 5 ) then
@@ -415,7 +415,7 @@ basic_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_la
 	-- determine target position
 	local pos = {x=res.x, y=height+1, z=res.z};
 	-- if plasterwork is installed: place a machine
-	if( materials.color and minetest.global_exists("plasterwork")) then -- and math.random(1,10)==1) then
+	if( materials.color and minetest.global_exists("plasterwork")) then -- and pr:next(1,10)==1) then
 		vm:set_node_at( pos, {name=materials.walls, param2 = materials.color});
 		local pos2 = {x=res.x, y=height+2, z=res.z};
 		vm:set_node_at( pos2, {name="plasterwork:machine", param2 = res.p2n});
@@ -441,25 +441,24 @@ basic_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_la
 	minetest.registered_nodes[ basic_houses.chest ].on_construct( pos );
 	local meta = minetest.get_meta(pos);
 	local inv = meta:get_inventory();
-	local c = math.random(1,4);
+	local c = pr:next(1,4);
 	for i=1,c do
-		local stack_name = materials.walls.." "..math.random(1,99);
+		local stack_name = materials.walls.." "..pr:next(1,99);
 		if( materials.color ) then
 			stack_name = minetest.itemstring_with_palette( stack_name, materials.color );
 		end
 		inv:add_item( "main", stack_name );
 	end
-	inv:add_item( "main", materials.first_floor.." "..math.random(1,49) );
-	c = math.random(1,2);
+	inv:add_item( "main", materials.first_floor.." "..pr:next(1,49) );
+	c = pr:next(1,2);
 	for i=1,c do
-		inv:add_item( "main", materials.ceiling.." "..math.random(1,99) );
+		inv:add_item( "main", materials.ceiling.." "..pr:next(1,99) );
 	end
-	inv:add_item( "main", materials.glass.." "..math.random(1,20) );
+	inv:add_item( "main", materials.glass.." "..pr:next(1,20) );
 	if( not( materials.roof_flat )) then
-		inv:add_item( "main", materials.roof.." "..math.random(1,99) );
-		inv:add_item( "main", materials.roof_middle.." "..math.random(1,49) );
+		inv:add_item( "main", materials.roof.." "..pr:next(1,99) );
+		inv:add_item( "main", materials.roof_middle.." "..pr:next(1,49) );
 	end
---]]
 end
 
 
@@ -501,28 +500,28 @@ end
 
 -- chooses random materials, amount of floors etc.;
 -- sets data.materials and data.p2.ymax
-basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk, chunk_ends_at_height )
+basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk, chunk_ends_at_height, pr )
 	-- select some random materials, height etc.
 	-- wood is always useful
 	local wood_types = replacements_group['wood'].found;
-	local wood       = wood_types[ math.random(1,#wood_types)];
-	local wood_roof  = wood_types[ math.random(1,#wood_types)];
+	local wood       = wood_types[ pr:next(1,#wood_types)];
+	local wood_roof  = wood_types[ pr:next(1,#wood_types)];
 	-- choose random materials
 	local materials = {
 		walls = nil,
 		color = nil,
 		gable = nil,
-		glass         = basic_houses.glass[ math.random( 1,#basic_houses.glass )],
+		glass         = basic_houses.glass[ pr:next( 1,#basic_houses.glass )],
 		roof          = replacements_group['wood'].data[ wood_roof ][7], -- stair
 		roof_middle   = replacements_group['wood'].data[ wood_roof ][8], -- slab
 		first_floor   = basic_houses.floor,
-		ceiling       = wood_types[ math.random(1,#wood_types)],
+		ceiling       = wood_types[ pr:next(1,#wood_types)],
 		wall_orients  = {0,1,2,3},
 		glass_orients = {12,18,9,7},
 	};
 
 	-- windows 3 nodes high, 2 high, or just 1?
-	local r = math.random(1,6);
+	local r = pr:next(1,6);
 	if(     r==1 or r==2) then
 		materials.window_at_height = {0,1,1,1,0};
 	elseif( r==3 or r==4 or r==5) then
@@ -533,49 +532,49 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 
 	-- how many floors will the house have?
 	local max_floors_possible = math.floor((chunk_ends_at_height-1-data.p2.y)/#materials.window_at_height);
-	if( math.random(1,5)==1) then
-		materials.floors = math.random(1,math.min(8,max_floors_possible-1));
+	if( pr:next(1,5)==1) then
+		materials.floors = pr:next(1,math.min(8,max_floors_possible-1));
 	else
-		materials.floors = math.random(1,math.min(4,max_floors_possible-1));
+		materials.floors = pr:next(1,math.min(4,max_floors_possible-1));
 	end
 
 
 	-- some houses may have a flat roof instead of a saddle roof
 	materials.flat_roof = false;
-	if( math.random(1,2)==1) then
+	if( pr:next(1,2)==1) then
 		materials.flat_roof = true;
 	end
 
 	-- path around the house so that the door is accessible
-	materials.around_house = basic_houses.around_house[ math.random(1, #basic_houses.around_house )];
+	materials.around_house = basic_houses.around_house[ pr:next(1, #basic_houses.around_house )];
 	-- which wall material shall be used?
-	if( minetest.global_exists("plasterwork") and math.random(1,2)==1 ) then
+	if( minetest.global_exists("plasterwork") and pr:next(1,2)==1 ) then
 		-- colored plasterwork
-		materials.walls = plasterwork.node_list[ math.random(1, #plasterwork.node_list)];
-		materials.color = math.random(0,255);
+		materials.walls = plasterwork.node_list[ pr:next(1, #plasterwork.node_list)];
+		materials.color = pr:next(0,255);
 	else
-		local r = math.random(1,3);
+		local r = pr:next(1,3);
 		-- wooden house
 		if(     r==1 ) then
 			materials.walls = wood;
 			-- wooden houses with more than 3 floors would be strange
-			materials.floors = math.random(1, math.min( 3, max_floors_possible-1 ));
+			materials.floors = pr:next(1, math.min( 3, max_floors_possible-1 ));
 			-- flat roofs do not look good on them either
 			materials.flat_roof = false;
 			-- vertical wood is also pretty decorative
-			if( math.random(1,2)==1 ) then
+			if( pr:next(1,2)==1 ) then
 				materials.wall_orients = {12,18,9,7};
 			end
 		-- tree logs
 		elseif( r==2 ) then
 			materials.walls = replacements_group['wood'].data[ wood ][4]; -- tree trunk
 			-- log cabins with more than 2 floors are unlikely
-			materials.floors = math.random(1, math.min( 2, max_floors_possible-1 ));
+			materials.floors = pr:next(1, math.min( 2, max_floors_possible-1 ));
 			-- log cabins do not have a flat roof either
 			materials.flat_roof = false;
 			materials.wall_orients = {12,18,9,7};
 		else
-			materials.walls = basic_houses.walls[ math.random(1,#basic_houses.walls)];
+			materials.walls = basic_houses.walls[ pr:next(1,#basic_houses.walls)];
 		end
 	end
 	-- if there are less than three houses in a mapchunk: do not place skyscrapers
@@ -587,8 +586,8 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 	end
 
 	materials.gable = materials.walls;
-	if( math.random(1,3)==1 ) then
-		materials.gable = wood_types[ math.random(1,#wood_types)];
+	if( pr:next(1,3)==1 ) then
+		materials.gable = wood_types[ pr:next(1,#wood_types)];
 	end
 
 	local height = materials.floors * #materials.window_at_height +1;
@@ -603,15 +602,15 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 
 	-- place windows at even or odd rows? -> create some variety
 	local window_at_odd_row = false;
-	if( math.random(1,2)==1 ) then
+	if( pr:next(1,2)==1 ) then
 		window_at_odd_row = true;
 	end
 
 	-- place where a door or ladder might be added (no window there);
 	-- we need to avid adding ladders directly in front of windows or
 	-- placing doors right next to glass panes because that would look ugly
-	local special_wall_1 = math.random(3,math.min(data.sizex,data.sizez)-3);
-	local special_wall_2 = math.random(3,math.min(data.sizex,data.sizez)-3);
+	local special_wall_1 = pr:next(3,math.min(data.sizex,data.sizez)-3);
+	local special_wall_2 = pr:next(3,math.min(data.sizex,data.sizez)-3);
 	if( special_wall_2 == special_wall_1 ) then
 		special_wall_2 = special_wall_2 - 1;
 		if( special_wall_2 < 3 ) then
@@ -631,9 +630,9 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 			-- be able to see through the house)
 			local not_special = ( (lauf ~= special_wall_1) and (lauf ~= special_wall_2));
 			if( window_at_odd_row == (lauf%2==1)) then
-				wall_1_has_window = (not_special and ( math.random(1,3)~=3));
+				wall_1_has_window = (not_special and ( pr:next(1,3)~=3));
 			else
-				wall_2_has_window = (not_special and ( math.random(1,3)~=3));
+				wall_2_has_window = (not_special and ( pr:next(1,3)~=3));
 			end
 		end
 	end
@@ -654,7 +653,8 @@ end
 --   materials.around_house     node type for one node wide path around the house
 --   materials.floors           how many floors does the house have?
 --   materials.flat_roof        if true: add a flat roof; else saddle roof
-basic_houses.simple_hut_place_hut_using_vm = function( data, materials, vm )
+--   pr                         PseudoRandom number generator for reproducability
+basic_houses.simple_hut_place_hut_using_vm = function( data, materials, vm, pr )
 	local p = data.p2;
 	local sizex = data.sizex-1;
 	local sizez = data.sizez-1;
@@ -687,9 +687,9 @@ basic_houses.simple_hut_place_hut_using_vm = function( data, materials, vm )
 
 	local p_start = {x=p.x-sizex+1, y=p.y-1, z=p.z-sizez+1};
 	-- build the two walls in x direction
-	local s1 = basic_houses.build_two_walls(p_start, sizex-2, sizez-2, true,  materials, vm ); --12, 18, vm );
+	local s1 = basic_houses.build_two_walls(p_start, sizex-2, sizez-2, true,  materials, vm, pr ); --12, 18, vm );
 	-- build the two walls in z direction
-	local s2 = basic_houses.build_two_walls(p_start, sizex-2, sizez-2, false, materials, vm ); -- 9,  7, vm );
+	local s2 = basic_houses.build_two_walls(p_start, sizex-2, sizez-2, false, materials, vm, pr ); -- 9,  7, vm );
 
 	-- each floor is 4 blocks heigh
 	local roof_starts_at = p.y + (4*materials.floors);
@@ -742,10 +742,10 @@ basic_houses.simple_hut_place_hut_using_vm = function( data, materials, vm )
 	local reserved_places = {s1[1], s1[2], s2[1], s2[2], s1[3], s2[3]};
 	p_start = {x=p.x-sizex, y=p.y, z=p.z-sizez};
 	local wall_with_ladder = basic_houses.place_ladder( p_start, sizex, sizez,
-		reserved_places, #materials.window_at_height-1, materials.flat_roof, vm);
+		reserved_places, #materials.window_at_height-1, materials.flat_roof, vm, pr );
 
-	basic_houses.place_door( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm );
-	basic_houses.place_chest( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm, materials );
+	basic_houses.place_door( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm, pr );
+	basic_houses.place_chest( p_start, sizex, sizez, reserved_places, wall_with_ladder, floor_height, vm, materials, pr );
 
 	-- return where the hut has been placed
 	return {p1={x=p.x - sizex, y=p.y, z=p.z - sizez }, p2=p};
@@ -753,7 +753,7 @@ end
 
 
 -- get the voxelmanip object and place the house in there
-basic_houses.simple_hut_place_hut = function( data, materials )
+basic_houses.simple_hut_place_hut = function( data, materials, pr )
 	local p = data.p2;
 	local sizex = data.sizex-1;
 	local sizez = data.sizez-1;
@@ -767,7 +767,7 @@ basic_houses.simple_hut_place_hut = function( data, materials )
 	vm:read_from_map(
 		{x=p.x - sizex, y=p.y-1, z=p.z - sizez },
 		{x=p.x, y=p.ymax, z=p.z});
-	basic_houses.simple_hut_place_hut_using_vm( data, materials, vm )
+	basic_houses.simple_hut_place_hut_using_vm( data, materials, vm, pr )
 	vm:write_to_map(true);
 end
 
@@ -830,13 +830,15 @@ if(not(minetest.get_modpath("mg_villages"))) then
 	-- use the same material around the houses in the entire mapchunk
 	local around_house_material = nil;
 	for i,data in ipairs( house_data ) do
-		local res = basic_houses.simple_hut_get_materials( data, #house_data, maxp.y+16 );
+		-- initialize pseudorandom number generator
+		local pr = PseudoRandom( data.p2.x + data.p2.z );
+		local res = basic_houses.simple_hut_get_materials( data, #house_data, maxp.y+16, pr );
 		if( not( around_house_material )) then
 			around_house_material = res.materials.around_house;
 		else
 			res.materials.around_house = around_house_material;
 		end
-		basic_houses.simple_hut_place_hut( data, res.materials );
+		basic_houses.simple_hut_place_hut( data, res.materials, pr );
 	end
 
 	if( houses_placed > 0 ) then
@@ -849,14 +851,14 @@ end
 
 
 -- interface for handle_schematics for manual generation of houses
-basic_houses.get_parameter = function( pos, sizex, sizez, sizey )
+basic_houses.get_parameter = function( pos, sizex, sizez, sizey, pr )
 	local data = { p2={x=pos.x+sizex, y=pos.y, z=pos.z+sizez}, sizex=sizex, sizez=sizez, sizey=sizey};
 	-- it needs at least 3 houses in this mapchunk in order to generate a flat roof
 	local amount_in_this_mapchunk = 100;
 	-- how heigh can the building become at max?
 	local chunk_ends_at_height = data.p2.y+1+sizey;
 	-- suggest random materials and other values
-	local res = basic_houses.simple_hut_get_materials( data, amount_in_this_mapchunk, chunk_ends_at_height )
+	local res = basic_houses.simple_hut_get_materials( data, amount_in_this_mapchunk, chunk_ends_at_height, pr )
 	-- these parameters are needed as well
 	res.p2    = data.p2;
 	res.sizex = data.sizex;
@@ -865,10 +867,26 @@ basic_houses.get_parameter = function( pos, sizex, sizez, sizey )
 	return res;
 end
 
---basic_houses.generate_random_hut_at_pos = function( pos, sizex, sizez, sizey )
---	-- actually generate the hut
---	basic_houses.simple_hut_place_hut( data, res.materials );
---end
+
+-- for manual placement with handle_schematics and/or mg_villages;
+-- vm may be a fake VoxelManip data structure
+-- returns a value != nil (actually the start and end position) if successful
+basic_houses.generate_random_hut_at_pos = function( pos, sizex, sizez, sizey, seed, vm )
+	-- prepare the data structure containing position and size
+	local data = { p2 = {x=pos.x, y=pos.y, z=pos.z}, sizex = sizex, sizez = sizez };
+	-- initialize pseudorandom number generator for reproducability
+	local pr = PseudoRandom( seed );
+	-- if the second parameter is greater than 3, houses with a flat roof can be generated
+	local res = basic_houses.simple_hut_get_materials( data, 4, pos.y+sizey+1, pr );
+	-- no need to assure a walkable path to the entrance if we are dealing with mods
+	-- that ensure that by diffrent means (mg_villages = flat land; build chest from
+	-- handle_schematics = player places manually); dirt with grass is a general
+	-- placeholder for the biome surface
+	res.materials.around_house = "default:dirt_with_grass";
+	-- place the house into the vm data structure
+	return basic_houses.simple_hut_place_hut_using_vm( data, materials, vm, pr )
+end
+
 
 build_chest.add_entry( {'generate building','basic_houses',
 	{ basic_houses.generate_random_hut_at_pos,
