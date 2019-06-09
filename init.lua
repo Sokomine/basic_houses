@@ -186,8 +186,8 @@ basic_houses.build_two_walls = function( p, sizex, sizez, in_x_direction, materi
 	-- place where a door or ladder might be added (no window there);
 	-- we need to avid adding ladders directly in front of windows or
 	-- placing doors right next to glass panes because that would look ugly
-	local special_wall_1 = pr:next(3,size-3);
-	local special_wall_2 = pr:next(3,size-3);
+	local special_wall_1 = pr:next(3,math.max(3,size-3));
+	local special_wall_2 = pr:next(3,math.max(3,size-3));
 	if( special_wall_2 == special_wall_1 ) then
 		special_wall_2 = special_wall_2 - 1;
 		if( special_wall_2 < 3 ) then
@@ -400,7 +400,7 @@ basic_houses.place_chest = function( p, sizex, sizez, chest_places, wall_with_la
 	end
 
 	local res = basic_houses.get_random_place( p, sizex, sizez, chest_places, -1, wall_with_ladder, 1, pr );
-	local height = floor_height[ pr:next(2,#floor_height)];
+	local height = floor_height[ pr:next(2,math.max(2,#floor_height))];
 	-- translate wallmounted (for ladder) to facedir for chest
 	res.p2 = res.p2;
 	if(     res.p2 == 5 ) then
@@ -504,18 +504,18 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 	-- select some random materials, height etc.
 	-- wood is always useful
 	local wood_types = replacements_group['wood'].found;
-	local wood       = wood_types[ pr:next(1,#wood_types)];
-	local wood_roof  = wood_types[ pr:next(1,#wood_types)];
+	local wood       = wood_types[ pr:next(1,math.max(1,#wood_types))];
+	local wood_roof  = wood_types[ pr:next(1,math.max(1,#wood_types))];
 	-- choose random materials
 	local materials = {
 		walls = nil,
 		color = nil,
 		gable = nil,
-		glass         = basic_houses.glass[ pr:next( 1,#basic_houses.glass )],
+		glass         = basic_houses.glass[ pr:next( 1,math.max(1,#basic_houses.glass ))],
 		roof          = replacements_group['wood'].data[ wood_roof ][7], -- stair
 		roof_middle   = replacements_group['wood'].data[ wood_roof ][8], -- slab
 		first_floor   = basic_houses.floor,
-		ceiling       = wood_types[ pr:next(1,#wood_types)],
+		ceiling       = wood_types[ pr:next(1,math.max(1,#wood_types))],
 		wall_orients  = {0,1,2,3},
 		glass_orients = {12,18,9,7},
 	};
@@ -533,9 +533,9 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 	-- how many floors will the house have?
 	local max_floors_possible = math.floor((chunk_ends_at_height-1-data.p2.y)/#materials.window_at_height);
 	if( pr:next(1,5)==1) then
-		materials.floors = pr:next(1,math.min(8,max_floors_possible-1));
+		materials.floors = pr:next(1,math.min(8,math.max(1,max_floors_possible-1)));
 	else
-		materials.floors = pr:next(1,math.min(4,max_floors_possible-1));
+		materials.floors = pr:next(1,math.min(4,math.max(1,max_floors_possible-1)));
 	end
 
 
@@ -558,7 +558,7 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 		if(     r==1 ) then
 			materials.walls = wood;
 			-- wooden houses with more than 3 floors would be strange
-			materials.floors = pr:next(1, math.min( 3, max_floors_possible-1 ));
+			materials.floors = pr:next(1, math.min( 3, math.max(3,max_floors_possible-1 )));
 			-- flat roofs do not look good on them either
 			materials.flat_roof = false;
 			-- vertical wood is also pretty decorative
@@ -569,7 +569,7 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 		elseif( r==2 ) then
 			materials.walls = replacements_group['wood'].data[ wood ][4]; -- tree trunk
 			-- log cabins with more than 2 floors are unlikely
-			materials.floors = pr:next(1, math.min( 2, max_floors_possible-1 ));
+			materials.floors = pr:next(1, math.min( 2, math.max(2,max_floors_possible-1 )));
 			-- log cabins do not have a flat roof either
 			materials.flat_roof = false;
 			materials.wall_orients = {12,18,9,7};
@@ -609,8 +609,8 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 	-- place where a door or ladder might be added (no window there);
 	-- we need to avid adding ladders directly in front of windows or
 	-- placing doors right next to glass panes because that would look ugly
-	local special_wall_1 = pr:next(3,math.min(data.sizex,data.sizez)-3);
-	local special_wall_2 = pr:next(3,math.min(data.sizex,data.sizez)-3);
+	local special_wall_1 = pr:next(3,math.max(3,math.min(data.sizex,data.sizez)-3));
+	local special_wall_2 = pr:next(3,math.max(3,math.min(data.sizex,data.sizez)-3));
 	if( special_wall_2 == special_wall_1 ) then
 		special_wall_2 = special_wall_2 - 1;
 		if( special_wall_2 < 3 ) then
@@ -873,7 +873,7 @@ end
 -- returns a value != nil (actually the start and end position) if successful
 basic_houses.generate_random_hut_at_pos = function( pos, sizex, sizez, sizey, seed, vm )
 	-- prepare the data structure containing position and size
-	local data = { p2 = {x=pos.x, y=pos.y, z=pos.z}, sizex = sizex, sizez = sizez };
+	local data = { p2 = {x=pos.x+sizex, y=pos.y+sizey, z=pos.z+sizez}, sizex = sizex, sizez = sizez };
 	-- initialize pseudorandom number generator for reproducability
 	local pr = PseudoRandom( seed );
 	-- if the second parameter is greater than 3, houses with a flat roof can be generated
@@ -884,11 +884,13 @@ basic_houses.generate_random_hut_at_pos = function( pos, sizex, sizez, sizey, se
 	-- placeholder for the biome surface
 	res.materials.around_house = "default:dirt_with_grass";
 	-- place the house into the vm data structure
-	return basic_houses.simple_hut_place_hut_using_vm( data, materials, vm, pr )
+	local res = basic_houses.simple_hut_place_hut_using_vm( data, data.materials, vm, pr )
+	-- the fake voxelmanip data structure contains all the data we need
+	return vm;
 end
 
 
-build_chest.add_entry( {'generate building','basic_houses',
-	{ basic_houses.generate_random_hut_at_pos,
-	  basic_houses.get_parameter
-	}} );
+build_chest.add_entry( {'generate building','basic_houses', 'basic_houses.generator'});
+build_chest.add_building( 'basic_houses.generator',
+	{ generator=basic_houses.generate_random_hut_at_pos,
+	} );
