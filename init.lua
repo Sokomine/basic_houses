@@ -873,7 +873,7 @@ end
 -- returns a value != nil (actually the start and end position) if successful
 basic_houses.generate_random_hut_at_pos = function( pos, sizex, sizez, sizey, seed, vm )
 	-- prepare the data structure containing position and size
-	local data = { p2 = {x=pos.x+sizex, y=pos.y+sizey, z=pos.z+sizez}, sizex = sizex, sizez = sizez };
+	local data = { p2 = {x=pos.x+sizex, y=pos.y, z=pos.z+sizez}, sizex = sizex, sizez = sizez };
 	-- initialize pseudorandom number generator for reproducability
 	local pr = PseudoRandom( seed );
 	-- if the second parameter is greater than 3, houses with a flat roof can be generated
@@ -885,6 +885,8 @@ basic_houses.generate_random_hut_at_pos = function( pos, sizex, sizez, sizey, se
 	res.materials.around_house = "default:dirt_with_grass";
 	-- place the house into the vm data structure
 	local res = basic_houses.simple_hut_place_hut_using_vm( data, data.materials, vm, pr )
+	-- the structure is burried one node deep (=floor)
+	vm.yoff = 0;
 	-- the fake voxelmanip data structure contains all the data we need
 	return vm;
 end
