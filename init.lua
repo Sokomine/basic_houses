@@ -637,6 +637,18 @@ basic_houses.simple_hut_get_materials = function( data, amount_in_this_mapchunk,
 		end
 	end
 --]]
+	-- aliases would have no content_id for placement
+	for k, v in pairs(data.materials) do
+		if(v and type(v)=="string") then
+			if(minetest.registered_aliases[v]) then
+				data.materials[k] = minetest.registered_aliases[v]
+			end
+			-- avoid crashes - even if that requires placing air
+			if(not(minetest.registered_nodes[data.materials[k]])) then
+				data.materials[k] = "air"
+			end
+		end
+	end
 	return data;
 end
 
