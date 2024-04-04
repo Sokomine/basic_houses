@@ -1,0 +1,17 @@
+# This file contains settings of basic_houses that can be changed in
+# minetest.conf
+
+
+#    Generate no more than this many houses per mapchunk (80x80x80 blocks).
+#    Note: This amount will likely only spawn if your mapgen is very flat.
+#          Else you will see far less houses.
+basic_houses_max_per_mapchunk (Max houses per mapchunk) int 20 0 50
+
+#    How many houses shall be generated on average per mapchunk (80x80x80 blocks)?
+basic_houses_houses_wanted_per_mapchunk (Average houses per mapchunk) float 0.5 0.0 50
+
+#    Even if there would not be any house here due to amount of houses
+#    generated beeing equal or larger than the amount of houses expected,
+#    there is still this additional chance (in percent) that the mapchunk
+#    will receive a house anyway (more randomness is good!)
+basic_houses_additional_chance (Additional houses per mapchunk) int 5 0 100

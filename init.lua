@@ -31,16 +31,22 @@ basic_houses = {};
 -- generate at max this many houses per mapchunk;
 -- Note: This amount will likely only spawn if your mapgen is very flat.
 --       Else you will see far less houses.
-basic_houses.max_per_mapchunk = 20;
+basic_houses.max_per_mapchunk = tonumber(minetest.settings:get("basic_houses_max_per_mapchunk") or 20)
 
 -- how many houses shall be generated on average per mapchunk?
-basic_houses.houses_wanted_per_mapchunk = 0.5;
+basic_houses.houses_wanted_per_mapchunk = minetest.settings:get("basic_houses_houses_wanted_per_mapchunk") or  0.5
 
 -- even if there would not be any house here due to amount of houses
 -- generated beeing equal or larger than the amount of houses expected,
 -- there is still this additional chance (in percent) that the mapchunk
 -- will receive a house anyway (more randomness is good!)
-basic_houses.additional_chance = 5;
+basic_houses.additional_chance = tonumber(minetest.settings:get("basic_houses_additional_chance") or 5)
+
+
+-- print("MAX: "..tostring(basic_houses.max_per_mapchunk))
+-- print("WANTED: "..tostring(basic_houses.houses_wanted_per_mapchunk))
+-- print("ADD: "..tostring(basic_houses.additional_chance))
+
 
 -- how many mapchunks have been generated since the server was started?
 basic_houses.mapchunks_processed = 0;
@@ -818,7 +824,8 @@ if(not(minetest.get_modpath("mg_villages"))) then
 	-- also place a house in the first mapchunk possible in order to "greet" the player
 	-- with it and assure the player that the mod is installed
 	if( (basic_houses.houses_generated>1)
-	  and missing < basic_houses.max_per_mapchunk and math.random(1,100)>basic_houses.additional_chance) then
+	  and missing < basic_houses.max_per_mapchunk
+	  and math.random(1,100)>basic_houses.additional_chance) then
 		return;
 	end
 	local heightmap = minetest.get_mapgen_object('heightmap');
