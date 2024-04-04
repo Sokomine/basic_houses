@@ -773,7 +773,7 @@ basic_houses.simple_hut_place_hut = function( data, materials, pr )
 	if( sizex < 3 or sizez < 3 or sizex>64 or sizez>64) then
 		return nil;
 	end
-	print( "  Placing house at "..minetest.pos_to_string( p ));
+--	print( "  Placing house at "..minetest.pos_to_string( p ));
 
 	local vm = minetest.get_voxel_manip();
 	vm:read_from_map(
